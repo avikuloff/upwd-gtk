@@ -6,9 +6,16 @@ use gdk;
 use gio::prelude::*;
 use gtk::prelude::*;
 
-use gtk::{Box, Button, ButtonBox, ButtonBoxStyle, CheckButton, Label, Orientation, PolicyType, Scale, ScrolledWindow, TextView, NONE_ADJUSTMENT};
+use gtk::{Box, Button, ButtonBox, ButtonBoxStyle, CheckButton, Label, Orientation, PolicyType, Scale, ScrolledWindow, TextView, NONE_ADJUSTMENT, Entry};
 use std::env;
 use upwd_lib::{generate_password, Pool};
+use std::str::FromStr;
+use std::rc::Rc;
+
+const UPPERCASE: &'static str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const LOWERCASE: &'static str = "abcdefghijklmnopqrstuvwxyz";
+const DIGITS: &'static str = "0123456789";
+const SYMBOLS: &'static str = "*&^%$#@!~";
 
 fn main() {
     // Todo change app id
@@ -27,17 +34,20 @@ fn main() {
         main_box.set_property_margin(15);
 
         let ch_box = Box::new(Orientation::Vertical, 0);
-        let chbox_uppers = CheckButton::with_label("Uppercase");
-        let chbox_lowers = CheckButton::with_label("Lowercase");
+        let chbox_uppers = CheckButton::with_label("Uppercase letters");
+        let chbox_lowers = CheckButton::with_label("Lowercase letters");
         let chbox_digits = CheckButton::with_label("Digits");
         let chbox_symbols = CheckButton::with_label("Special chars");
+        let entry_pool = Rc::new(Entry::new());
         chbox_uppers.set_active(true);
         chbox_lowers.set_active(true);
         chbox_digits.set_active(true);
-        ch_box.pack_start(&chbox_uppers, false, false, 0);
-        ch_box.pack_start(&chbox_lowers, false, false, 0);
-        ch_box.pack_start(&chbox_digits, false, false, 0);
-        ch_box.pack_start(&chbox_symbols, false, false, 0);
+        entry_pool.set_text(&format!("{}{}{}", UPPERCASE, LOWERCASE, DIGITS));
+        ch_box.add(&chbox_uppers);
+        ch_box.add(&chbox_lowers);
+        ch_box.add(&chbox_digits);
+        ch_box.add(&chbox_symbols);
+        ch_box.add(&*entry_pool);
         main_box.add(&ch_box);
 
         let length_box = Box::new(Orientation::Horizontal, 0);
@@ -52,9 +62,9 @@ fn main() {
 
         let bbox = ButtonBox::new(Orientation::Horizontal);
         bbox.set_layout(ButtonBoxStyle::Expand);
-        let btn_generate = Button::with_label("Generate");
+        let btn_generate = Rc::new(Button::with_label("Generate"));
         let btn_copy = Button::with_label("Copy");
-        bbox.add(&btn_generate);
+        bbox.add(&*btn_generate);
         bbox.add(&btn_copy);
         let text = TextView::new();
         let buf = text.get_buffer().unwrap();
@@ -72,47 +82,76 @@ fn main() {
 
         win.add(&main_box);
         win.show_all();
-/*
-        chbox_uppers.connect_toggled(move |v: &CheckButton| {
-            let mut pool = Pool::from_str(&entry_buffer.get_text()).unwrap();
+
+        let clone_entry_pool = entry_pool.clone();
+        chbox_uppers.connect_toggled(move |v| {
+            let mut pool = Pool::from_str(&clone_entry_pool.get_text()).unwrap();
 
             if v.get_active() {
-                pool.extend_from_string("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+                pool.extend_from_string(UPPERCASE);
             } else {
-                pool.remove_all("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+                pool.remove_all(UPPERCASE);
             }
 
-            &entry_buffer.set_text(&pool.to_string());
+            &clone_entry_pool.set_text(&pool.to_string());
         });
-*/
-        btn_generate.connect_clicked(move |v| {
-            let mut pool = Pool::new();
+        let clone_entry_pool = entry_pool.clone();
+        chbox_lowers.connect_toggled(move |v| {
+            let mut pool = Pool::from_str(&clone_entry_pool.get_text()).unwrap();
 
-            if chbox_uppers.get_active() {
-                pool.extend_from_string("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-            }
-            if chbox_lowers.get_active() {
-                pool.extend_from_string("abcdefghijklmnopqrstuvwxyz");
-            }
-            if chbox_digits.get_active() {
-                pool.extend_from_string("0123456789");
-            }
-            if chbox_symbols.get_active() {
-                pool.extend_from_string("*&^%$#@!~");
+            if v.get_active() {
+                pool.extend_from_string(LOWERCASE);
+            } else {
+                pool.remove_all(LOWERCASE);
             }
 
-            if pool.is_empty() {
-                v.set_sensitive(false);
+            &clone_entry_pool.set_text(&pool.to_string());
+        });
+        let clone_entry_pool = entry_pool.clone();
+        chbox_digits.connect_toggled(move |v| {
+            let mut pool = Pool::from_str(&clone_entry_pool.get_text()).unwrap();
+
+            if v.get_active() {
+                pool.extend_from_string(DIGITS);
+            } else {
+                pool.remove_all(DIGITS);
+            }
+
+            &clone_entry_pool.set_text(&pool.to_string());
+        });
+        let clone_entry_pool = entry_pool.clone();
+        chbox_symbols.connect_toggled(move |v| {
+            let mut pool = Pool::from_str(&clone_entry_pool.get_text()).unwrap();
+
+            if v.get_active() {
+                pool.extend_from_string(SYMBOLS);
+            } else {
+                pool.remove_all(SYMBOLS);
+            }
+
+            &clone_entry_pool.set_text(&pool.to_string());
+        });
+
+        let clone_entry_pool = entry_pool.clone();
+        let clone_btn_generate = btn_generate.clone();
+        clone_entry_pool.connect_changed(move |v| {
+            if v.get_text_length() == 0 {
+                clone_btn_generate.set_sensitive(false);
                 return;
             } else {
-                v.set_sensitive(true);
+                clone_btn_generate.set_sensitive(true);
             }
+        });
+
+        btn_generate.connect_clicked(move |_| {
+            let pool = Pool::from_str(&entry_pool.get_text()).unwrap();
 
             buf.set_text(&*generate_password(
                 &pool,
                 scale_length.get_value() as usize,
             ));
         });
+
         btn_copy.connect_clicked(move |_| {
             let clipboard = &text.get_clipboard(&gdk::SELECTION_CLIPBOARD);
             let buffer = &text.get_buffer().unwrap();
