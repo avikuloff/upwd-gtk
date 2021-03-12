@@ -6,7 +6,7 @@ use gdk;
 use gio::prelude::*;
 use gtk::prelude::*;
 
-use gtk::{Box, Button, ButtonBox, ButtonBoxStyle, CheckButton, Label, Orientation, PolicyType, Scale, ScrolledWindow, TextView, NONE_ADJUSTMENT, Entry};
+use gtk::{Box, Button, ButtonBox, ButtonBoxStyle, CheckButton, Label, Orientation, PolicyType, Scale, ScrolledWindow, TextView, NONE_ADJUSTMENT, Entry, SpinButton};
 use std::env;
 use upwd_lib::{generate_password, Pool};
 use std::str::FromStr;
@@ -58,7 +58,15 @@ fn main() {
         length_box.pack_end(&scale_length, true, true, 5);
         main_box.add(&length_box);
 
-        // Todo add number of passwords field
+        let num_password_box = Box::new(Orientation::Vertical, 0);
+        num_password_box.set_margin_top(10);
+        num_password_box.set_margin_bottom(10);
+        let num_password_label = Label::new(Some("Number of passwords"));
+        let num_password_spin_btn = SpinButton::with_range(1_f64, 100_f64, 1_f64);
+        num_password_spin_btn.set_value(1.0);
+        num_password_box.add(&num_password_label);
+        num_password_box.add(&num_password_spin_btn);
+        main_box.add(&num_password_box);
 
         let bbox = ButtonBox::new(Orientation::Horizontal);
         bbox.set_layout(ButtonBoxStyle::Expand);
@@ -70,8 +78,8 @@ fn main() {
         let buf = text.get_buffer().unwrap();
         buf.set_text("");
 
-        // Todo needs resizing window
         let sw = ScrolledWindow::new(NONE_ADJUSTMENT, NONE_ADJUSTMENT);
+        sw.set_min_content_height(80);
         sw.set_policy(PolicyType::Automatic, PolicyType::Automatic);
         sw.add(&text);
 
@@ -144,15 +152,23 @@ fn main() {
         });
 
         btn_generate.connect_clicked(move |_| {
+            let len = scale_length.get_value() as usize;
+            let num_passwords = num_password_spin_btn.get_value() as u8;
             let pool = Pool::from_str(&entry_pool.get_text()).unwrap();
 
-            buf.set_text(&*generate_password(
-                &pool,
-                scale_length.get_value() as usize,
-            ));
+            for i in 0..num_passwords {
+                let mut password = generate_password(&pool, len);
+                if i == 0 {
+                    buf.set_text(&password);
+                } else {
+                    password.insert(0, '\n');
+                    buf.insert(&mut buf.get_iter_at_line(i as i32), &password)
+                }
+            }
         });
 
-        btn_copy.connect_clicked(move |_| {
+        // Todo add tooltip
+        btn_copy.connect_clicked(move |_btn| {
             let clipboard = &text.get_clipboard(&gdk::SELECTION_CLIPBOARD);
             let buffer = &text.get_buffer().unwrap();
             let text = buffer
