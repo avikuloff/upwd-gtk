@@ -6,12 +6,18 @@ use gio::prelude::*;
 use gtk::prelude::*;
 
 use gdk;
-use gtk::{Application, ApplicationWindow, Box, Button, ButtonBoxBuilder, ButtonBoxStyle, CheckButton, CheckButtonBuilder, Entry, EntryBuilder, Label, Orientation, PolicyType, Scale, ScrolledWindow, ScrolledWindowBuilder, SpinButton, TextBuffer, TextView, TextViewBuilder, TextBufferBuilder};
+use gdk::RGBA;
+use gtk::{
+    Application, ApplicationWindow, Box, BoxBuilder, Button, ButtonBoxBuilder, ButtonBoxStyle,
+    CheckButton, CheckButtonBuilder, Entry, EntryBuilder, Label, Orientation, PolicyType, Scale,
+    ScrolledWindow, ScrolledWindowBuilder, SpinButton, StateFlags, TextBuffer, TextBufferBuilder,
+    TextView, TextViewBuilder,
+};
 use std::env;
 use std::ops::Add;
 use std::rc::Rc;
 use std::str::FromStr;
-use upwd_lib::{generate_password, Pool};
+use upwd_lib::{calculate_entropy, generate_password, Pool};
 
 const UPPERS: &'static str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const LOWERS: &'static str = "abcdefghijklmnopqrstuvwxyz";
@@ -49,8 +55,9 @@ fn main() {
         // --------------- PASSWORD LENGTH --------------- //
         let length_box = Box::new(Orientation::Horizontal, 0);
         let (length_label, length_scale) = create_length_scale();
+        let length_scale = Rc::new(length_scale);
         length_box.pack_start(&length_label, false, false, 0);
-        length_box.pack_end(&length_scale, true, true, 5);
+        length_box.pack_end(&*length_scale, true, true, 5);
 
         // --------------- NUMBER OF PASSWORDS --------------- //
         let num_password_box = Box::new(Orientation::Vertical, 0);
@@ -61,9 +68,11 @@ fn main() {
         // --------------- CREATE SHOW PASSWORDS WINDOW --------------- //
         let scrolled_window = create_scrolled_window();
         let passwords_box = Box::new(Orientation::Vertical, 0);
+        let strong_meter_box = Rc::new(create_strong_meter_box(&length_scale, &pool_entry));
         let (passwords_text_view, passwords_text_buffer) = create_passwords_text_view();
         scrolled_window.add(&passwords_text_view);
         passwords_box.pack_start(&scrolled_window, true, true, 0);
+        passwords_box.add(&*strong_meter_box);
 
         // --------------- GENERATE AND COPY PASSWORDS BUTTONS --------------- //
         let btn_box = ButtonBoxBuilder::new()
@@ -105,8 +114,27 @@ fn main() {
         });
 
         let clone_btn_generate = btn_generate.clone();
-        pool_entry
-            .connect_changed(move |entry| handle_pool_entry_changed(entry, &*clone_btn_generate));
+        let clone_length_scale = length_scale.clone();
+        let clone_strong_meter = strong_meter_box.clone();
+        pool_entry.clone().connect_changed(move |entry| {
+            handle_pool_entry_changed(
+                entry,
+                &*clone_btn_generate,
+                &*clone_length_scale,
+                &*clone_strong_meter,
+            )
+        });
+
+        let clone_btn_generate = btn_generate.clone();
+        let clone_pool_entry = pool_entry.clone();
+        length_scale.connect_value_changed(move |length| {
+            handle_pool_entry_changed(
+                &*clone_pool_entry,
+                &*clone_btn_generate,
+                &length,
+                &*strong_meter_box,
+            )
+        });
 
         btn_generate.connect_clicked(move |_btn| {
             handle_generate_btn_clicked(
@@ -178,7 +206,10 @@ fn create_num_passwords_spin_btn() -> (Label, SpinButton) {
 
 fn create_passwords_text_view() -> (TextView, TextBuffer) {
     let buffer = TextBufferBuilder::new().text("").build();
-    let view = TextViewBuilder::new().buffer(&buffer).border_width(3).build();
+    let view = TextViewBuilder::new()
+        .buffer(&buffer)
+        .border_width(3)
+        .build();
 
     (view, buffer)
 }
@@ -188,6 +219,18 @@ fn create_scrolled_window() -> ScrolledWindow {
         .min_content_height(65)
         .vscrollbar_policy(PolicyType::Always)
         .build()
+}
+
+fn create_strong_meter_box(length_scale: &Scale, pool_entry: &Entry) -> Box {
+    let strong_meter_box = BoxBuilder::new().height_request(2).build();
+
+    strong_meter_set_color(
+        &strong_meter_box,
+        length_scale.get_value() as usize,
+        Pool::from_str(&pool_entry.get_text()).unwrap(),
+    );
+
+    strong_meter_box
 }
 
 // В зависимости от состояния `chk_btn` добавляет или удаляет символы `string` из `entry`
@@ -204,12 +247,21 @@ fn handle_chk_btn_toggled(chk_btn: &CheckButton, entry: &Entry, string: &str) {
 }
 
 // Если `entry` не содержит ни одного символа, то кнопка `btn_generate` блокируется
-fn handle_pool_entry_changed(entry: &Entry, btn_generate: &Button) {
-    if entry.get_text_length() == 0 {
+fn handle_pool_entry_changed(
+    entry: &Entry,
+    btn_generate: &Button,
+    length: &Scale,
+    strong_meter: &Box,
+) {
+    let pool = Pool::from_str(&entry.get_text()).unwrap();
+
+    if pool.len() == 0 {
         btn_generate.set_sensitive(false);
     } else {
         btn_generate.set_sensitive(true);
     }
+
+    strong_meter_set_color(strong_meter, length.get_value() as usize, pool);
 }
 
 // Создает `num_passwords` паролей длиной `length` символов, используя символы определенные в `pool`.
@@ -238,4 +290,21 @@ fn handle_copy_btn_clicked(text_view: &TextView) {
         .unwrap();
 
     clipboard.set_text(&text);
+}
+
+fn strong_meter_set_color(strong_meter: &Box, length: usize, pool: Pool) {
+    let pool_size = pool.len();
+
+    let color = if pool_size == 0 {
+        RGBA::white()
+    } else {
+        match calculate_entropy(length, pool_size) as u16 {
+            1..=52 => RGBA::red(),
+            53..=70 => RGBA::from_str("#FFFF00").unwrap(),
+            val if val > 70 => RGBA::green(),
+            _ => RGBA::white(),
+        }
+    };
+
+    strong_meter.override_background_color(StateFlags::NORMAL, Some(&color));
 }
