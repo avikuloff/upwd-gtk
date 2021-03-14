@@ -195,7 +195,7 @@ fn create_length_scale() -> (Label, Scale) {
 }
 
 fn create_num_passwords_spin_btn() -> (Label, SpinButton) {
-    let num_password_spin_btn = SpinButton::with_range(1.0, 100.0, 1.0);
+    let num_password_spin_btn = SpinButton::with_range(1.0, 1000.0, 1.0);
     num_password_spin_btn.set_value(1.0);
 
     (
