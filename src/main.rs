@@ -9,9 +9,9 @@ use gdk;
 use gdk::RGBA;
 use gtk::{
     Application, ApplicationWindow, Box, BoxBuilder, Button, ButtonBoxBuilder, ButtonBoxStyle,
-    CheckButton, CheckButtonBuilder, Entry, EntryBuilder, Label, Orientation, PolicyType, Scale,
-    ScrolledWindow, ScrolledWindowBuilder, SpinButton, StateFlags, TextBuffer, TextBufferBuilder,
-    TextView, TextViewBuilder,
+    CheckButton, CheckButtonBuilder, Entry, EntryBuilder, Label, Orientation, PolicyType, Popover,
+    PopoverBuilder, Scale, ScrolledWindow, ScrolledWindowBuilder, SpinButton, StateFlags,
+    TextBuffer, TextBufferBuilder, TextView, TextViewBuilder,
 };
 use std::env;
 use std::ops::Add;
@@ -81,6 +81,7 @@ fn main() {
             .build();
         let btn_generate = Rc::new(Button::with_label("Generate"));
         let btn_copy = Button::with_label("Copy");
+        let copy_popover = create_copy_popover(&btn_copy);
         btn_box.add(&*btn_generate);
         btn_box.add(&btn_copy);
 
@@ -145,7 +146,10 @@ fn main() {
             )
         });
 
-        btn_copy.connect_clicked(move |_btn| handle_copy_btn_clicked(&passwords_text_view));
+        btn_copy.connect_clicked(move |_btn| {
+            handle_copy_btn_clicked(&passwords_text_view);
+            copy_popover.show_all();
+        });
         // --------------- END HANDLE SIGNALS --------------- //
     });
     uiapp.run(&env::args().collect::<Vec<_>>());
@@ -231,6 +235,15 @@ fn create_strong_meter_box(length_scale: &Scale, pool_entry: &Entry) -> Box {
     );
 
     strong_meter_box
+}
+
+fn create_copy_popover(copy_btn: &Button) -> Popover {
+    PopoverBuilder::new()
+        .relative_to(copy_btn)
+        .child(&Label::new(Some("Copied!")))
+        .modal(true)
+        .border_width(6)
+        .build()
 }
 
 // В зависимости от состояния `chk_btn` добавляет или удаляет символы `string` из `entry`
