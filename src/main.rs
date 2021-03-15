@@ -97,46 +97,53 @@ fn main() {
         win.show_all();
 
         // --------------- HANDLE SIGNALS --------------- //
-        let clone_entry_pool = pool_entry.clone();
-        uppers_chk_btn.connect_toggled(move |chk_btn| {
-            handle_chk_btn_toggled(chk_btn, &*clone_entry_pool, UPPERS)
-        });
-        let clone_entry_pool = pool_entry.clone();
-        lowers_chk_btn.connect_toggled(move |chk_btn| {
-            handle_chk_btn_toggled(chk_btn, &*clone_entry_pool, LOWERS)
-        });
-        let clone_entry_pool = pool_entry.clone();
-        digits_chk_btn.connect_toggled(move |chk_btn| {
-            handle_chk_btn_toggled(chk_btn, &*clone_entry_pool, DIGITS)
-        });
-        let clone_entry_pool = pool_entry.clone();
-        symbols_chk_btn.connect_toggled(move |chk_btn| {
-            handle_chk_btn_toggled(chk_btn, &*clone_entry_pool, SYMBOLS)
-        });
+        {
+            let pool_entry = pool_entry.clone();
+            uppers_chk_btn.connect_toggled(move |chk_btn| {
+                handle_chk_btn_toggled(chk_btn, &*pool_entry, UPPERS)
+            });
+        }
+        {
+            let pool_entry = pool_entry.clone();
+            lowers_chk_btn.connect_toggled(move |chk_btn| {
+                handle_chk_btn_toggled(chk_btn, &*pool_entry, LOWERS)
+            });
+        }
+        {
+            let pool_entry = pool_entry.clone();
+            digits_chk_btn.connect_toggled(move |chk_btn| {
+                handle_chk_btn_toggled(chk_btn, &*pool_entry, DIGITS)
+            });
+        }
+        {
+            let pool_entry = pool_entry.clone();
+            symbols_chk_btn.connect_toggled(move |chk_btn| {
+                handle_chk_btn_toggled(chk_btn, &*pool_entry, SYMBOLS)
+            });
+        }
 
-        let clone_btn_generate = btn_generate.clone();
-        let clone_length_scale = length_scale.clone();
-        let clone_strong_meter = strong_meter_box.clone();
-        pool_entry.clone().connect_changed(move |entry| {
-            handle_pool_entry_changed(
-                entry,
-                &*clone_btn_generate
-            );
-            let pool = Pool::from_str(&entry.get_text()).unwrap();
-            strong_meter_set_color(&*clone_strong_meter, clone_length_scale.get_value() as usize, pool);
-        });
+        {
+            let btn_generate = btn_generate.clone();
+            let length_scale = length_scale.clone();
+            let strong_meter_box = strong_meter_box.clone();
+            pool_entry.clone().connect_changed(move |entry| {
+                handle_pool_entry_changed(entry, &*btn_generate);
 
-        let clone_btn_generate = btn_generate.clone();
-        let clone_pool_entry = pool_entry.clone();
-        let clone_strong_meter = strong_meter_box.clone();
-        length_scale.connect_value_changed(move |length| {
-            handle_pool_entry_changed(
-                &*clone_pool_entry,
-                &*clone_btn_generate
-            );
-            let pool = Pool::from_str(&*clone_pool_entry.get_text()).unwrap();
-            strong_meter_set_color(&*clone_strong_meter, length.get_value() as usize, pool);
-        });
+                let pool = Pool::from_str(&entry.get_text()).unwrap();
+                strong_meter_set_color(&*strong_meter_box, length_scale.get_value() as usize, pool);
+            });
+        }
+
+        {
+            let btn_generate = btn_generate.clone();
+            let pool_entry = pool_entry.clone();
+            let strong_meter_box = strong_meter_box.clone();
+            length_scale.connect_value_changed(move |length| {
+                handle_pool_entry_changed(&*pool_entry, &*btn_generate);
+                let pool = Pool::from_str(&*pool_entry.get_text()).unwrap();
+                strong_meter_set_color(&*strong_meter_box, length.get_value() as usize, pool);
+            });
+        }
 
         btn_generate.connect_clicked(move |_btn| {
             handle_generate_btn_clicked(
@@ -261,10 +268,7 @@ fn handle_chk_btn_toggled(chk_btn: &CheckButton, entry: &Entry, string: &str) {
 }
 
 // Если `entry` не содержит ни одного символа, то кнопка `btn_generate` блокируется
-fn handle_pool_entry_changed(
-    entry: &Entry,
-    btn_generate: &Button
-) {
+fn handle_pool_entry_changed(entry: &Entry, btn_generate: &Button) {
     let pool = Pool::from_str(&entry.get_text()).unwrap();
 
     if pool.len() == 0 {
