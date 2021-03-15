@@ -120,21 +120,22 @@ fn main() {
         pool_entry.clone().connect_changed(move |entry| {
             handle_pool_entry_changed(
                 entry,
-                &*clone_btn_generate,
-                &*clone_length_scale,
-                &*clone_strong_meter,
-            )
+                &*clone_btn_generate
+            );
+            let pool = Pool::from_str(&entry.get_text()).unwrap();
+            strong_meter_set_color(&*clone_strong_meter, clone_length_scale.get_value() as usize, pool);
         });
 
         let clone_btn_generate = btn_generate.clone();
         let clone_pool_entry = pool_entry.clone();
+        let clone_strong_meter = strong_meter_box.clone();
         length_scale.connect_value_changed(move |length| {
             handle_pool_entry_changed(
                 &*clone_pool_entry,
-                &*clone_btn_generate,
-                &length,
-                &*strong_meter_box,
-            )
+                &*clone_btn_generate
+            );
+            let pool = Pool::from_str(&*clone_pool_entry.get_text()).unwrap();
+            strong_meter_set_color(&*clone_strong_meter, length.get_value() as usize, pool);
         });
 
         btn_generate.connect_clicked(move |_btn| {
@@ -262,9 +263,7 @@ fn handle_chk_btn_toggled(chk_btn: &CheckButton, entry: &Entry, string: &str) {
 // Если `entry` не содержит ни одного символа, то кнопка `btn_generate` блокируется
 fn handle_pool_entry_changed(
     entry: &Entry,
-    btn_generate: &Button,
-    length: &Scale,
-    strong_meter: &Box,
+    btn_generate: &Button
 ) {
     let pool = Pool::from_str(&entry.get_text()).unwrap();
 
@@ -273,8 +272,6 @@ fn handle_pool_entry_changed(
     } else {
         btn_generate.set_sensitive(true);
     }
-
-    strong_meter_set_color(strong_meter, length.get_value() as usize, pool);
 }
 
 // Создает `num_passwords` паролей длиной `length` символов, используя символы определенные в `pool`.
