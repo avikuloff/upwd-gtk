@@ -261,7 +261,9 @@ fn handle_chk_btn_toggled(chk_btn: &CheckButton, entry: &Entry, string: &str) {
     if chk_btn.get_active() {
         pool.extend_from_string(string);
     } else {
-        pool.remove_all(string);
+        string.chars().for_each(|ch| {
+            pool.shift_remove(&ch);
+        });
     }
 
     entry.set_text(&pool.to_string());
