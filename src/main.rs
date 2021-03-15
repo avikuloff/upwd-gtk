@@ -1,22 +1,21 @@
 extern crate gio;
 extern crate gtk;
 
+use std::env;
+use std::ops::Add;
+use std::rc::Rc;
+use std::str::FromStr;
+
+use gdk::{RGBA, SELECTION_CLIPBOARD};
 // To import all needed traits.
 use gio::prelude::*;
 use gtk::prelude::*;
-
-use gdk;
-use gdk::RGBA;
 use gtk::{
     Application, ApplicationWindow, Box, BoxBuilder, Button, ButtonBoxBuilder, ButtonBoxStyle,
     CheckButton, CheckButtonBuilder, Entry, EntryBuilder, Label, Orientation, PolicyType, Popover,
     PopoverBuilder, Scale, ScrolledWindow, ScrolledWindowBuilder, SpinButton, StateFlags,
     TextBuffer, TextBufferBuilder, TextView, TextViewBuilder,
 };
-use std::env;
-use std::ops::Add;
-use std::rc::Rc;
-use std::str::FromStr;
 use upwd_lib::{calculate_entropy, generate_password, Pool};
 
 const UPPERS: &'static str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -135,11 +134,9 @@ fn main() {
         }
 
         {
-            let btn_generate = btn_generate.clone();
             let pool_entry = pool_entry.clone();
             let strong_meter_box = strong_meter_box.clone();
             length_scale.connect_value_changed(move |length| {
-                handle_pool_entry_changed(&*pool_entry, &*btn_generate);
                 let pool = Pool::from_str(&*pool_entry.get_text()).unwrap();
                 strong_meter_set_color(&*strong_meter_box, length.get_value() as usize, pool);
             });
@@ -299,7 +296,7 @@ fn handle_generate_btn_clicked(pool: &str, length: usize, num_passwords: u8, buf
 
 // Копирует пароли из `text_view` в буфер обмена
 fn handle_copy_btn_clicked(text_view: &TextView) {
-    let clipboard = text_view.get_clipboard(&gdk::SELECTION_CLIPBOARD);
+    let clipboard = text_view.get_clipboard(&SELECTION_CLIPBOARD);
     let buffer = text_view.get_buffer().unwrap();
     let text = buffer
         .get_text(&buffer.get_start_iter(), &buffer.get_end_iter(), false)
