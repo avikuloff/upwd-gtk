@@ -210,8 +210,8 @@ fn main() {
 fn create_application_window(app: &Application) -> ApplicationWindow {
     gtk::ApplicationWindowBuilder::new()
         .application(app)
-        .default_width(255)
-        .default_height(360)
+        .default_width(360)
+        .default_height(480)
         .title("Random Password Generator")
         .build()
 }
