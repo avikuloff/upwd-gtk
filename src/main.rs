@@ -2,26 +2,24 @@ extern crate gio;
 extern crate gtk;
 
 use std::env;
-use std::ops::Add;
 use std::rc::Rc;
 use std::str::FromStr;
 
 use gdk::{RGBA, SELECTION_CLIPBOARD};
-// To import all needed traits.
 use gio::prelude::*;
 use gtk::prelude::*;
 use gtk::{
     Application, ApplicationWindow, Box, BoxBuilder, Button, ButtonBoxBuilder, ButtonBoxStyle,
-    CheckButton, CheckButtonBuilder, Entry, EntryBuilder, Label, Orientation, PolicyType, Popover,
+    CheckButton, Entry, EntryBuilder, HeaderBarBuilder, Label, Orientation, PolicyType, Popover,
     PopoverBuilder, Scale, ScrolledWindow, ScrolledWindowBuilder, SpinButton, StateFlags,
     TextBuffer, TextBufferBuilder, TextView, TextViewBuilder,
 };
 use upwd_lib::{calculate_entropy, generate_password, Pool};
 
-const UPPERS: &'static str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const LOWERS: &'static str = "abcdefghijklmnopqrstuvwxyz";
-const DIGITS: &'static str = "0123456789";
-const SYMBOLS: &'static str = "*&^%$#@!~";
+// To import all needed traits.
+use crate::config::{Config, ConfigBuilder};
+
+mod config;
 
 fn main() {
     let uiapp = gtk::Application::new(
@@ -31,8 +29,19 @@ fn main() {
     .expect("Application::new failed");
 
     uiapp.connect_activate(|app| {
+        let cfg: Rc<Config> = Rc::new(Config::load());
         // --------------- CREATE MAIN WINDOW --------------- //
         let win = create_application_window(app);
+
+        // --------------- CREATE HEADER BAR --------------- //
+        let header = HeaderBarBuilder::new()
+            .title("Random Password Generator")
+            .show_close_button(true)
+            .has_subtitle(false)
+            .build();
+        let save_btn = Button::with_label("Save");
+        save_btn.set_tooltip_text(Some("Save current configuration"));
+        header.pack_start(&save_btn);
 
         // --------------- CREATE MAIN CONTAINER --------------- //
         let main_box = Box::new(Orientation::Vertical, 5);
@@ -40,11 +49,16 @@ fn main() {
 
         // --------------- POOL CUSTOMIZATION --------------- //
         let pool_box = Box::new(Orientation::Vertical, 0);
-        let uppers_chk_btn = create_uppers_chk_btn();
-        let lowers_chk_btn = create_lowers_chk_btn();
-        let digits_chk_btn = create_digits_chk_btn();
+        let uppers_chk_btn = CheckButton::with_label("Uppercase letters");
+        let lowers_chk_btn = CheckButton::with_label("Lowercase letters");
+        let digits_chk_btn = CheckButton::with_label("Digits");
         let symbols_chk_btn = CheckButton::with_label("Special chars");
-        let pool_entry = Rc::new(create_pool_entry());
+        uppers_chk_btn.set_active(cfg.use_uppers());
+        lowers_chk_btn.set_active(cfg.use_lowers());
+        digits_chk_btn.set_active(cfg.use_digits());
+        symbols_chk_btn.set_active(cfg.use_symbols());
+
+        let pool_entry = Rc::new(EntryBuilder::new().text(cfg.pool()).build());
         pool_box.add(&uppers_chk_btn);
         pool_box.add(&lowers_chk_btn);
         pool_box.add(&digits_chk_btn);
@@ -54,6 +68,7 @@ fn main() {
         // --------------- PASSWORD LENGTH --------------- //
         let length_box = Box::new(Orientation::Horizontal, 0);
         let (length_label, length_scale) = create_length_scale();
+        length_scale.set_value(cfg.length() as f64);
         let length_scale = Rc::new(length_scale);
         length_box.pack_start(&length_label, false, false, 0);
         length_box.pack_end(&*length_scale, true, true, 5);
@@ -61,6 +76,7 @@ fn main() {
         // --------------- NUMBER OF PASSWORDS --------------- //
         let num_password_box = Box::new(Orientation::Vertical, 0);
         let (num_password_label, num_password_spin_btn) = create_num_passwords_spin_btn();
+        num_password_spin_btn.set_value(cfg.count() as f64);
         num_password_box.add(&num_password_label);
         num_password_box.add(&num_password_spin_btn);
 
@@ -80,6 +96,7 @@ fn main() {
             .build();
         let btn_generate = Rc::new(Button::with_label("Generate"));
         let btn_copy = Button::with_label("Copy");
+        btn_copy.set_tooltip_text(Some("Copy to clipboard"));
         let copy_popover = create_copy_popover(&btn_copy);
         btn_box.add(&*btn_generate);
         btn_box.add(&btn_copy);
@@ -92,32 +109,37 @@ fn main() {
         main_box.pack_end(&btn_box, false, false, 0);
 
         // --------------- POPULATE MAIN WINDOW --------------- //
+        win.set_titlebar(Some(&header));
         win.add(&main_box);
         win.show_all();
 
         // --------------- HANDLE SIGNALS --------------- //
         {
             let pool_entry = pool_entry.clone();
+            let cfg = cfg.clone();
             uppers_chk_btn.connect_toggled(move |chk_btn| {
-                handle_chk_btn_toggled(chk_btn, &*pool_entry, UPPERS)
+                handle_chk_btn_toggled(chk_btn, &*pool_entry, cfg.uppers());
             });
         }
         {
             let pool_entry = pool_entry.clone();
+            let cfg = cfg.clone();
             lowers_chk_btn.connect_toggled(move |chk_btn| {
-                handle_chk_btn_toggled(chk_btn, &*pool_entry, LOWERS)
+                handle_chk_btn_toggled(chk_btn, &*pool_entry, cfg.lowers())
             });
         }
         {
             let pool_entry = pool_entry.clone();
+            let cfg = cfg.clone();
             digits_chk_btn.connect_toggled(move |chk_btn| {
-                handle_chk_btn_toggled(chk_btn, &*pool_entry, DIGITS)
+                handle_chk_btn_toggled(chk_btn, &*pool_entry, cfg.digits())
             });
         }
         {
             let pool_entry = pool_entry.clone();
+            let cfg = cfg.clone();
             symbols_chk_btn.connect_toggled(move |chk_btn| {
-                handle_chk_btn_toggled(chk_btn, &*pool_entry, SYMBOLS)
+                handle_chk_btn_toggled(chk_btn, &*pool_entry, cfg.symbols())
             });
         }
 
@@ -141,20 +163,45 @@ fn main() {
                 strong_meter_set_color(&*strong_meter_box, length.get_value() as usize, pool);
             });
         }
-
-        btn_generate.connect_clicked(move |_btn| {
-            handle_generate_btn_clicked(
-                &pool_entry.get_text(),
-                length_scale.get_value() as usize,
-                num_password_spin_btn.get_value() as u8,
-                &passwords_text_buffer,
-            )
-        });
+        {
+            let pool_entry = pool_entry.clone();
+            let length_scale = length_scale.clone();
+            let num_password_spin_btn = num_password_spin_btn.clone();
+            btn_generate.connect_clicked(move |_btn| {
+                handle_generate_btn_clicked(
+                    &pool_entry.get_text(),
+                    length_scale.get_value() as usize,
+                    num_password_spin_btn.get_value() as u8,
+                    &passwords_text_buffer,
+                )
+            });
+        }
 
         btn_copy.connect_clicked(move |_btn| {
             handle_copy_btn_clicked(&passwords_text_view);
             copy_popover.show_all();
         });
+
+        {
+            let cfg = cfg.clone();
+            save_btn.connect_clicked(move |_btn| {
+                let cfg = ConfigBuilder::new()
+                    .uppers(cfg.uppers().to_owned())
+                    .lowers(cfg.lowers().to_owned())
+                    .digits(cfg.digits().to_owned())
+                    .symbols(cfg.symbols().to_owned())
+                    .use_uppers(uppers_chk_btn.get_active())
+                    .use_lowers(lowers_chk_btn.get_active())
+                    .use_digits(digits_chk_btn.get_active())
+                    .use_symbols(symbols_chk_btn.get_active())
+                    .pool(pool_entry.get_text().to_owned())
+                    .length(length_scale.get_value() as u8)
+                    .count(num_password_spin_btn.get_value() as u32)
+                    .build();
+
+                cfg.save()
+            });
+        }
         // --------------- END HANDLE SIGNALS --------------- //
     });
     uiapp.run(&env::args().collect::<Vec<_>>());
@@ -166,33 +213,6 @@ fn create_application_window(app: &Application) -> ApplicationWindow {
         .default_width(255)
         .default_height(360)
         .title("Random Password Generator")
-        .build()
-}
-
-fn create_uppers_chk_btn() -> CheckButton {
-    CheckButtonBuilder::new()
-        .label("Uppercase letters")
-        .active(true)
-        .build()
-}
-
-fn create_lowers_chk_btn() -> CheckButton {
-    CheckButtonBuilder::new()
-        .label("Lowercase letters")
-        .active(true)
-        .build()
-}
-
-fn create_digits_chk_btn() -> CheckButton {
-    CheckButtonBuilder::new()
-        .label("Digits")
-        .active(true)
-        .build()
-}
-
-fn create_pool_entry() -> Entry {
-    EntryBuilder::new()
-        .text(&String::from(UPPERS).add(LOWERS).add(DIGITS))
         .build()
 }
 
