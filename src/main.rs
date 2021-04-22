@@ -5,14 +5,14 @@ use std::env;
 use std::rc::Rc;
 use std::str::FromStr;
 
-use gdk::{RGBA, SELECTION_CLIPBOARD};
+use gdk::SELECTION_CLIPBOARD;
 use gio::prelude::*;
 use gtk::prelude::*;
 use gtk::{
-    Application, ApplicationWindow, Box, BoxBuilder, Button, ButtonBoxBuilder, ButtonBoxStyle,
-    CheckButton, Entry, EntryBuilder, HeaderBarBuilder, Label, Orientation, PolicyType, Popover,
-    PopoverBuilder, Scale, ScrolledWindow, ScrolledWindowBuilder, SpinButton, StateFlags,
-    TextBuffer, TextBufferBuilder, TextView, TextViewBuilder,
+    Application, ApplicationWindow, Box, Button, ButtonBoxBuilder, ButtonBoxStyle, CheckButton,
+    Entry, EntryBuilder, HeaderBarBuilder, Label, LevelBar, LevelBarMode, Orientation, PolicyType,
+    Popover, PopoverBuilder, Scale, ScrolledWindow, ScrolledWindowBuilder, SpinButton, TextBuffer,
+    TextBufferBuilder, TextView, TextViewBuilder,
 };
 use upwd_lib::{calculate_entropy, generate_password, Pool};
 
@@ -83,11 +83,18 @@ fn main() {
         // --------------- CREATE SHOW PASSWORDS WINDOW --------------- //
         let scrolled_window = create_scrolled_window();
         let passwords_box = Box::new(Orientation::Vertical, 0);
-        let strong_meter_box = Rc::new(create_strong_meter_box(&length_scale, &pool_entry));
         let (passwords_text_view, passwords_text_buffer) = create_passwords_text_view();
         scrolled_window.add(&passwords_text_view);
         passwords_box.pack_start(&scrolled_window, true, true, 0);
-        passwords_box.add(&*strong_meter_box);
+
+        // --------------- PASSWORD STRENGTH INDICATOR --------------- //
+        let pwd_strength = Rc::new(LevelBar::new_for_interval(0.0, 5.0));
+        pwd_strength.set_mode(LevelBarMode::Discrete);
+        {
+            let pool = Pool::from_str(&pool_entry.get_text()).unwrap();
+            let entropy = calculate_entropy(length_scale.get_value() as usize, pool.len());
+            pwd_strength.set_value(entropy / 20.0);
+        }
 
         // --------------- GENERATE AND COPY PASSWORDS BUTTONS --------------- //
         let btn_box = ButtonBoxBuilder::new()
@@ -106,6 +113,7 @@ fn main() {
         main_box.add(&length_box);
         main_box.add(&num_password_box);
         main_box.pack_start(&passwords_box, true, true, 0);
+        main_box.add(&*pwd_strength);
         main_box.pack_end(&btn_box, false, false, 0);
 
         // --------------- POPULATE MAIN WINDOW --------------- //
@@ -142,25 +150,26 @@ fn main() {
                 handle_chk_btn_toggled(chk_btn, &*pool_entry, cfg.symbols())
             });
         }
-
         {
             let btn_generate = btn_generate.clone();
             let length_scale = length_scale.clone();
-            let strong_meter_box = strong_meter_box.clone();
+            let pwd_strength = pwd_strength.clone();
             pool_entry.clone().connect_changed(move |entry| {
                 handle_pool_entry_changed(entry, &*btn_generate);
 
                 let pool = Pool::from_str(&entry.get_text()).unwrap();
-                strong_meter_set_color(&*strong_meter_box, length_scale.get_value() as usize, pool);
+                let entropy = calculate_entropy(length_scale.get_value() as usize, pool.len());
+                pwd_strength.set_value(entropy / 20.0);
             });
         }
 
         {
             let pool_entry = pool_entry.clone();
-            let strong_meter_box = strong_meter_box.clone();
+            let pwd_strength = pwd_strength.clone();
             length_scale.connect_value_changed(move |length| {
                 let pool = Pool::from_str(&*pool_entry.get_text()).unwrap();
-                strong_meter_set_color(&*strong_meter_box, length.get_value() as usize, pool);
+                let entropy = calculate_entropy(length.get_value() as usize, pool.len());
+                pwd_strength.set_value(entropy / 20.0);
             });
         }
         {
@@ -250,18 +259,6 @@ fn create_scrolled_window() -> ScrolledWindow {
         .build()
 }
 
-fn create_strong_meter_box(length_scale: &Scale, pool_entry: &Entry) -> Box {
-    let strong_meter_box = BoxBuilder::new().height_request(2).build();
-
-    strong_meter_set_color(
-        &strong_meter_box,
-        length_scale.get_value() as usize,
-        Pool::from_str(&pool_entry.get_text()).unwrap(),
-    );
-
-    strong_meter_box
-}
-
 fn create_copy_popover(copy_btn: &Button) -> Popover {
     PopoverBuilder::new()
         .relative_to(copy_btn)
@@ -323,21 +320,4 @@ fn handle_copy_btn_clicked(text_view: &TextView) {
         .unwrap();
 
     clipboard.set_text(&text);
-}
-
-fn strong_meter_set_color(strong_meter: &Box, length: usize, pool: Pool) {
-    let pool_size = pool.len();
-
-    let color = if pool_size == 0 {
-        RGBA::white()
-    } else {
-        match calculate_entropy(length, pool_size) as u16 {
-            1..=52 => RGBA::red(),
-            53..=70 => RGBA::from_str("#FFFF00").unwrap(),
-            val if val > 70 => RGBA::green(),
-            _ => RGBA::white(),
-        }
-    };
-
-    strong_meter.override_background_color(StateFlags::NORMAL, Some(&color));
 }
