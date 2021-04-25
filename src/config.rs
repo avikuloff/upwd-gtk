@@ -2,19 +2,55 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
-    uppers: String,
-    lowers: String,
-    digits: String,
-    symbols: String,
-    use_uppers: bool,
-    use_lowers: bool,
-    use_digits: bool,
-    use_symbols: bool,
+    #[serde(rename = "default_pool")]
     pool: String,
+    #[serde(rename = "default_length")]
     length: u8,
+    #[serde(rename = "default_number_of_passwords")]
     count: u32,
     max_length: u8,
+    #[serde(rename = "max_number_of_passwords")]
     max_count: u32,
+    pool_options: Vec<PoolOption>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PoolOption {
+    name: String,
+    value: String,
+    checked: bool,
+}
+
+#[derive(Debug, Default)]
+pub struct ConfigBuilder {
+    pool_options: Option<Vec<PoolOption>>,
+    pool: Option<String>,
+    length: Option<u8>,
+    count: Option<u32>,
+    max_length: Option<u8>,
+    max_count: Option<u32>,
+}
+
+impl PoolOption {
+    pub fn new(name: &str, value: &str, checked: bool) -> Self {
+        PoolOption {
+            name: name.to_owned(),
+            value: value.to_owned(),
+            checked,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn value(&self) -> &str {
+        &self.value
+    }
+
+    pub fn checked(&self) -> bool {
+        self.checked
+    }
 }
 
 impl Default for Config {
@@ -24,20 +60,19 @@ impl Default for Config {
         const DIGITS: &'static str = "0123456789";
         const SYMBOLS: &'static str = "*&^%$#@!~";
 
+        let mut pool_options = Vec::with_capacity(4);
+        pool_options.push(PoolOption::new("Use UPPERCASE letters", UPPERS, true));
+        pool_options.push(PoolOption::new("Use lowercase letters", LOWERS, true));
+        pool_options.push(PoolOption::new("Use digits", DIGITS, true));
+        pool_options.push(PoolOption::new("Use symbols", SYMBOLS, false));
+
         Config {
-            uppers: UPPERS.to_owned(),
-            lowers: LOWERS.to_owned(),
-            digits: DIGITS.to_owned(),
-            symbols: SYMBOLS.to_owned(),
-            use_uppers: true,
-            use_lowers: true,
-            use_digits: true,
-            use_symbols: false,
             pool: String::from(UPPERS) + LOWERS + DIGITS,
             length: 12,
             count: 1,
             max_length: 32,
-            max_count: 1000
+            max_count: 1000,
+            pool_options,
         }
     }
 }
@@ -51,36 +86,8 @@ impl Config {
         confy::store("upwd-gtk", self).unwrap();
     }
 
-    pub fn uppers(&self) -> &str {
-        &self.uppers
-    }
-
-    pub fn lowers(&self) -> &str {
-        &self.lowers
-    }
-
-    pub fn digits(&self) -> &str {
-        &self.digits
-    }
-
-    pub fn symbols(&self) -> &str {
-        &self.symbols
-    }
-
-    pub fn use_uppers(&self) -> bool {
-        self.use_uppers
-    }
-
-    pub fn use_lowers(&self) -> bool {
-        self.use_lowers
-    }
-
-    pub fn use_digits(&self) -> bool {
-        self.use_digits
-    }
-
-    pub fn use_symbols(&self) -> bool {
-        self.use_symbols
+    pub fn pool_options(&self) -> &Vec<PoolOption> {
+        &self.pool_options
     }
 
     pub fn pool(&self) -> &str {
@@ -104,23 +111,6 @@ impl Config {
     }
 }
 
-#[derive(Debug, Default)]
-pub struct ConfigBuilder {
-    uppers: Option<String>,
-    lowers: Option<String>,
-    digits: Option<String>,
-    symbols: Option<String>,
-    use_uppers: Option<bool>,
-    use_lowers: Option<bool>,
-    use_digits: Option<bool>,
-    use_symbols: Option<bool>,
-    pool: Option<String>,
-    length: Option<u8>,
-    count: Option<u32>,
-    max_length: Option<u8>,
-    max_count: Option<u32>
-}
-
 impl ConfigBuilder {
     pub fn new() -> Self {
         Self::default()
@@ -129,29 +119,8 @@ impl ConfigBuilder {
     pub fn build(self) -> Config {
         let mut config = Config::default();
 
-        if let Some(uppers) = self.uppers {
-            config.uppers = uppers;
-        }
-        if let Some(lowers) = self.lowers {
-            config.lowers = lowers;
-        }
-        if let Some(digits) = self.digits {
-            config.digits = digits;
-        }
-        if let Some(symbols) = self.symbols {
-            config.symbols = symbols;
-        }
-        if let Some(use_uppers) = self.use_uppers {
-            config.use_uppers = use_uppers;
-        }
-        if let Some(use_lowers) = self.use_lowers {
-            config.use_lowers = use_lowers;
-        }
-        if let Some(use_digits) = self.use_digits {
-            config.use_digits = use_digits;
-        }
-        if let Some(use_symbols) = self.use_symbols {
-            config.use_symbols = use_symbols;
+        if let Some(pool_options) = self.pool_options {
+            config.pool_options = pool_options;
         }
         if let Some(pool) = self.pool {
             config.pool = pool;
@@ -172,43 +141,8 @@ impl ConfigBuilder {
         config
     }
 
-    pub fn uppers(mut self, uppers: String) -> Self {
-        self.uppers = Some(uppers);
-        self
-    }
-
-    pub fn lowers(mut self, lowers: String) -> Self {
-        self.lowers = Some(lowers);
-        self
-    }
-
-    pub fn digits(mut self, digits: String) -> Self {
-        self.digits = Some(digits);
-        self
-    }
-
-    pub fn symbols(mut self, symbols: String) -> Self {
-        self.symbols = Some(symbols);
-        self
-    }
-
-    pub fn use_uppers(mut self, use_uppers: bool) -> Self {
-        self.use_uppers = Some(use_uppers);
-        self
-    }
-
-    pub fn use_lowers(mut self, use_lowers: bool) -> Self {
-        self.use_lowers = Some(use_lowers);
-        self
-    }
-
-    pub fn use_digits(mut self, use_digits: bool) -> Self {
-        self.use_digits = Some(use_digits);
-        self
-    }
-
-    pub fn use_symbols(mut self, use_symbols: bool) -> Self {
-        self.use_symbols = Some(use_symbols);
+    pub fn pool_options(mut self, pool_options: Vec<PoolOption>) -> Self {
+        self.pool_options = Some(pool_options);
         self
     }
 

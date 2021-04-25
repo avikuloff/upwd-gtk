@@ -49,20 +49,20 @@ fn main() {
 
         // --------------- POOL CUSTOMIZATION --------------- //
         let pool_box = Box::new(Orientation::Vertical, 0);
-        let uppers_chk_btn = CheckButton::with_label("Uppercase letters");
-        let lowers_chk_btn = CheckButton::with_label("Lowercase letters");
-        let digits_chk_btn = CheckButton::with_label("Digits");
-        let symbols_chk_btn = CheckButton::with_label("Special chars");
-        uppers_chk_btn.set_active(cfg.use_uppers());
-        lowers_chk_btn.set_active(cfg.use_lowers());
-        digits_chk_btn.set_active(cfg.use_digits());
-        symbols_chk_btn.set_active(cfg.use_symbols());
-
         let pool_entry = Rc::new(EntryBuilder::new().text(cfg.pool()).build());
-        pool_box.add(&uppers_chk_btn);
-        pool_box.add(&lowers_chk_btn);
-        pool_box.add(&digits_chk_btn);
-        pool_box.add(&symbols_chk_btn);
+
+        let pool_options = cfg.pool_options().clone();
+        for item in pool_options {
+            let chk_btn = CheckButton::with_label(item.name());
+            chk_btn.set_active(item.checked());
+            pool_box.add(&chk_btn);
+
+            let pool_entry = pool_entry.clone();
+            chk_btn.connect_toggled(move |chk_btn| {
+                handle_chk_btn_toggled(chk_btn, &*pool_entry, item.value())
+            });
+        }
+
         pool_box.add(&*pool_entry);
 
         // --------------- PASSWORD LENGTH --------------- //
@@ -125,34 +125,6 @@ fn main() {
 
         // --------------- HANDLE SIGNALS --------------- //
         {
-            let pool_entry = pool_entry.clone();
-            let cfg = cfg.clone();
-            uppers_chk_btn.connect_toggled(move |chk_btn| {
-                handle_chk_btn_toggled(chk_btn, &*pool_entry, cfg.uppers());
-            });
-        }
-        {
-            let pool_entry = pool_entry.clone();
-            let cfg = cfg.clone();
-            lowers_chk_btn.connect_toggled(move |chk_btn| {
-                handle_chk_btn_toggled(chk_btn, &*pool_entry, cfg.lowers())
-            });
-        }
-        {
-            let pool_entry = pool_entry.clone();
-            let cfg = cfg.clone();
-            digits_chk_btn.connect_toggled(move |chk_btn| {
-                handle_chk_btn_toggled(chk_btn, &*pool_entry, cfg.digits())
-            });
-        }
-        {
-            let pool_entry = pool_entry.clone();
-            let cfg = cfg.clone();
-            symbols_chk_btn.connect_toggled(move |chk_btn| {
-                handle_chk_btn_toggled(chk_btn, &*pool_entry, cfg.symbols())
-            });
-        }
-        {
             let btn_generate = btn_generate.clone();
             let length_scale = length_scale.clone();
             let pwd_strength = pwd_strength.clone();
@@ -164,7 +136,6 @@ fn main() {
                 pwd_strength.set_value(entropy / 20.0);
             });
         }
-
         {
             let pool_entry = pool_entry.clone();
             let pwd_strength = pwd_strength.clone();
@@ -197,14 +168,7 @@ fn main() {
             let cfg = cfg.clone();
             save_btn.connect_clicked(move |_btn| {
                 let cfg = ConfigBuilder::new()
-                    .uppers(cfg.uppers().to_owned())
-                    .lowers(cfg.lowers().to_owned())
-                    .digits(cfg.digits().to_owned())
-                    .symbols(cfg.symbols().to_owned())
-                    .use_uppers(uppers_chk_btn.get_active())
-                    .use_lowers(lowers_chk_btn.get_active())
-                    .use_digits(digits_chk_btn.get_active())
-                    .use_symbols(symbols_chk_btn.get_active())
+                    .pool_options(cfg.pool_options().to_owned())
                     .pool(pool_entry.get_text().to_owned())
                     .length(length_scale.get_value() as u8)
                     .count(num_password_spin_btn.get_value() as u32)
