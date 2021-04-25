@@ -40,7 +40,7 @@ fn main() {
 
         // --------------- CREATE MAIN CONTAINER --------------- //
         let main_box = Box::new(Orientation::Vertical, 5);
-        main_box.set_property_margin(15);
+        main_box.set_property_margin(10);
 
         // --------------- POOL CUSTOMIZATION --------------- //
         let pool_box = Box::new(Orientation::Vertical, 0);
