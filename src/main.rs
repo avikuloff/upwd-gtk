@@ -180,7 +180,7 @@ fn main() {
                 handle_generate_btn_clicked(
                     &pool_entry.get_text(),
                     length_scale.get_value() as usize,
-                    num_password_spin_btn.get_value() as u8,
+                    num_password_spin_btn.get_value() as u32,
                     &passwords_text_buffer,
                 )
             });
@@ -296,7 +296,7 @@ fn handle_pool_entry_changed(entry: &Entry, btn_generate: &Button) {
 
 // Создает `num_passwords` паролей длиной `length` символов, используя символы определенные в `pool`.
 // Перезаписывает `buffer`
-fn handle_generate_btn_clicked(pool: &str, length: usize, num_passwords: u8, buffer: &TextBuffer) {
+fn handle_generate_btn_clicked(pool: &str, length: usize, num_passwords: u32, buffer: &TextBuffer) {
     let pool = Pool::from_str(pool).unwrap();
 
     for i in 0..num_passwords {
