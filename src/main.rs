@@ -68,6 +68,7 @@ fn main() {
         // --------------- PASSWORD LENGTH --------------- //
         let length_box = Box::new(Orientation::Horizontal, 0);
         let (length_label, length_scale) = create_length_scale();
+        length_scale.set_range(4.0, cfg.max_length() as f64);
         length_scale.set_value(cfg.length() as f64);
         let length_scale = Rc::new(length_scale);
         length_box.pack_start(&length_label, false, false, 0);
@@ -76,6 +77,7 @@ fn main() {
         // --------------- NUMBER OF PASSWORDS --------------- //
         let num_password_box = Box::new(Orientation::Vertical, 0);
         let (num_password_label, num_password_spin_btn) = create_num_passwords_spin_btn();
+        num_password_spin_btn.set_range(1.0, cfg.max_count() as f64);
         num_password_spin_btn.set_value(cfg.count() as f64);
         num_password_box.add(&num_password_label);
         num_password_box.add(&num_password_spin_btn);
@@ -206,6 +208,8 @@ fn main() {
                     .pool(pool_entry.get_text().to_owned())
                     .length(length_scale.get_value() as u8)
                     .count(num_password_spin_btn.get_value() as u32)
+                    .max_length(cfg.max_length())
+                    .max_count(cfg.max_count())
                     .build();
 
                 cfg.save()

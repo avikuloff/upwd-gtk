@@ -13,6 +13,8 @@ pub struct Config {
     pool: String,
     length: u8,
     count: u32,
+    max_length: u8,
+    max_count: u32,
 }
 
 impl Default for Config {
@@ -34,6 +36,8 @@ impl Default for Config {
             pool: String::from(UPPERS) + LOWERS + DIGITS,
             length: 12,
             count: 1,
+            max_length: 32,
+            max_count: 1000
         }
     }
 }
@@ -90,6 +94,14 @@ impl Config {
     pub fn count(&self) -> u32 {
         self.count
     }
+
+    pub fn max_length(&self) -> u8 {
+        self.max_length
+    }
+
+    pub fn max_count(&self) -> u32 {
+        self.max_count
+    }
 }
 
 #[derive(Debug, Default)]
@@ -105,6 +117,8 @@ pub struct ConfigBuilder {
     pool: Option<String>,
     length: Option<u8>,
     count: Option<u32>,
+    max_length: Option<u8>,
+    max_count: Option<u32>
 }
 
 impl ConfigBuilder {
@@ -147,6 +161,12 @@ impl ConfigBuilder {
         }
         if let Some(count) = self.count {
             config.count = count;
+        }
+        if let Some(max_length) = self.max_length {
+            config.max_length = max_length;
+        }
+        if let Some(max_count) = self.max_count {
+            config.max_count = max_count;
         }
 
         config
@@ -204,6 +224,16 @@ impl ConfigBuilder {
 
     pub fn count(mut self, count: u32) -> Self {
         self.count = Some(count);
+        self
+    }
+
+    pub fn max_length(mut self, max_length: u8) -> Self {
+        self.max_length = Some(max_length);
+        self
+    }
+
+    pub fn max_count(mut self, max_count: u32) -> Self {
+        self.max_count = Some(max_count);
         self
     }
 }
