@@ -8,12 +8,7 @@ use std::str::FromStr;
 use gdk::SELECTION_CLIPBOARD;
 use gio::prelude::*;
 use gtk::prelude::*;
-use gtk::{
-    Application, ApplicationWindow, Box, Button, ButtonBoxBuilder, ButtonBoxStyle, CheckButton,
-    Entry, EntryBuilder, HeaderBarBuilder, Label, LevelBar, LevelBarMode, Orientation, PolicyType,
-    Popover, PopoverBuilder, Scale, ScrolledWindow, ScrolledWindowBuilder, SpinButton, TextBuffer,
-    TextBufferBuilder, TextView, TextViewBuilder,
-};
+use gtk::{Application, ApplicationWindow, Box, Button, ButtonBoxBuilder, ButtonBoxStyle, CheckButton, Entry, EntryBuilder, HeaderBarBuilder, Label, LevelBar, LevelBarMode, Orientation, PolicyType, Popover, PopoverBuilder, Scale, ScrolledWindow, ScrolledWindowBuilder, SpinButton, TextBuffer, TextBufferBuilder, TextView, TextViewBuilder, FlowBox, SelectionMode};
 use upwd_lib::{calculate_entropy, generate_password, Pool};
 
 // To import all needed traits.
@@ -51,11 +46,13 @@ fn main() {
         let pool_box = Box::new(Orientation::Vertical, 0);
         let pool_entry = Rc::new(EntryBuilder::new().text(cfg.pool()).build());
 
+        let pool_options_box = FlowBox::new();
+        pool_options_box.set_selection_mode(SelectionMode::None);
         let pool_options = cfg.pool_options().clone();
         for item in pool_options {
             let chk_btn = CheckButton::with_label(item.name());
             chk_btn.set_active(item.checked());
-            pool_box.add(&chk_btn);
+            pool_options_box.add(&chk_btn);
 
             let pool_entry = pool_entry.clone();
             chk_btn.connect_toggled(move |chk_btn| {
@@ -63,6 +60,7 @@ fn main() {
             });
         }
 
+        pool_box.add(&pool_options_box);
         pool_box.add(&*pool_entry);
 
         // --------------- PASSWORD LENGTH --------------- //
