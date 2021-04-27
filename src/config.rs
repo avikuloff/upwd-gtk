@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use confy::ConfyError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -82,8 +83,8 @@ impl Config {
         confy::load("upwd-gtk").unwrap_or_default()
     }
 
-    pub fn save(&self) {
-        confy::store("upwd-gtk", self).unwrap();
+    pub fn save(&self) -> Result<(), ConfyError> {
+        confy::store("upwd-gtk", self)
     }
 
     pub fn pool_options(&self) -> &Vec<PoolOption> {
