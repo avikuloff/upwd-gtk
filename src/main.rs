@@ -1,14 +1,14 @@
 extern crate gio;
 extern crate gtk;
 
-use std::env;
+use std::{env, fmt};
 use std::rc::Rc;
 use std::str::FromStr;
 
 use gdk::SELECTION_CLIPBOARD;
 use gio::prelude::*;
 use gtk::prelude::*;
-use gtk::{Application, ApplicationWindow, Box, Button, ButtonBoxBuilder, ButtonBoxStyle, CheckButton, Entry, EntryBuilder, HeaderBarBuilder, Label, LevelBar, LevelBarMode, Orientation, PolicyType, Popover, PopoverBuilder, Scale, ScrolledWindow, ScrolledWindowBuilder, SpinButton, TextBuffer, TextBufferBuilder, TextView, TextViewBuilder, FlowBox, SelectionMode};
+use gtk::{Application, ApplicationWindow, Box, Button, ButtonBoxBuilder, ButtonBoxStyle, CheckButton, Entry, EntryBuilder, HeaderBarBuilder, Label, LevelBar, LevelBarMode, Orientation, PolicyType, Scale, ScrolledWindow, ScrolledWindowBuilder, SpinButton, TextBuffer, TextBufferBuilder, TextView, TextViewBuilder, FlowBox, SelectionMode, Overlay, InfoBar, Align, MessageType};
 use upwd_lib::{calculate_entropy, generate_password, Pool};
 
 // To import all needed traits.
@@ -37,6 +37,13 @@ fn main() {
         let save_btn = Button::with_label("Save");
         save_btn.set_tooltip_text(Some("Save current configuration"));
         header.pack_start(&save_btn);
+
+        // --------------- CREATE OVERLAY --------------- //
+        let overlay = Overlay::new();
+
+        // --------------- CREATE INFOBAR BOX --------------- //
+        let info_box = Rc::new(Box::new(Orientation::Vertical, 5));
+        info_box.set_valign(Align::Start);
 
         // --------------- CREATE MAIN CONTAINER --------------- //
         let main_box = Box::new(Orientation::Vertical, 5);
@@ -104,7 +111,6 @@ fn main() {
         let btn_generate = Rc::new(Button::with_label("Generate"));
         let btn_copy = Button::with_label("Copy");
         btn_copy.set_tooltip_text(Some("Copy to clipboard"));
-        let copy_popover = create_copy_popover(&btn_copy);
         btn_box.add(&*btn_generate);
         btn_box.add(&btn_copy);
 
@@ -116,9 +122,13 @@ fn main() {
         main_box.add(&*pwd_strength);
         main_box.pack_end(&btn_box, false, false, 0);
 
+        // --------------- POPULATE OVERLAY --------------- //
+        overlay.add(&main_box);
+        overlay.add_overlay(&*info_box);
+
         // --------------- POPULATE MAIN WINDOW --------------- //
         win.set_titlebar(Some(&header));
-        win.add(&main_box);
+        win.add(&overlay);
         win.show_all();
 
         // --------------- HANDLE SIGNALS --------------- //
@@ -156,14 +166,24 @@ fn main() {
                 )
             });
         }
-
-        btn_copy.connect_clicked(move |_btn| {
-            handle_copy_btn_clicked(&passwords_text_view);
-            copy_popover.show_all();
-        });
-
+        {
+            let info_box = info_box.clone();
+            btn_copy.connect_clicked(move |_btn| {
+                let info_bar = match copy_passwords_to_clipboard(&passwords_text_view) {
+                    Some(_n) => create_info_bar("Скопировано в буфер обмена", MessageType::Info),
+                    None => create_info_bar("Не удалось скопировать содержимое текстового поля в буфер обмена.", MessageType::Error)
+                };
+                info_box.add(&info_bar);
+                info_bar.show_all();
+                timeout_add_seconds(5, move || unsafe {
+                    info_bar.destroy();
+                    Continue(false)
+                });
+            });
+        }
         {
             let cfg = cfg.clone();
+            let info_box = info_box.clone();
             save_btn.connect_clicked(move |_btn| {
                 let cfg = ConfigBuilder::new()
                     .pool_options(cfg.pool_options().to_owned())
@@ -174,7 +194,17 @@ fn main() {
                     .max_count(cfg.max_count())
                     .build();
 
-                cfg.save()
+                let info_bar = match cfg.save() {
+                    Ok(_) => create_info_bar("Saved.", MessageType::Info),
+                    Err(e) => create_info_bar(&e.to_string(), MessageType::Error)
+                };
+                info_box.add(&info_bar);
+                info_bar.show_all();
+                timeout_add_seconds(5, move || unsafe {
+                    info_bar.destroy();
+                    Continue(false)
+                });
+
             });
         }
         // --------------- END HANDLE SIGNALS --------------- //
@@ -225,13 +255,14 @@ fn create_scrolled_window() -> ScrolledWindow {
         .build()
 }
 
-fn create_copy_popover(copy_btn: &Button) -> Popover {
-    PopoverBuilder::new()
-        .relative_to(copy_btn)
-        .child(&Label::new(Some("Copied!")))
-        .modal(true)
-        .border_width(6)
-        .build()
+fn create_info_bar(message: &str, message_type: MessageType) -> InfoBar {
+    let info_bar = InfoBar::new();
+    let label = Label::new(Some(message));
+    info_bar.set_message_type(message_type);
+    info_bar.set_valign(Align::Start);
+    info_bar.set_show_close_button(true);
+    info_bar.get_content_area().add(&label);
+    info_bar
 }
 
 // В зависимости от состояния `chk_btn` добавляет или удаляет символы `string` из `entry`
@@ -277,13 +308,33 @@ fn handle_generate_btn_clicked(pool: &str, length: usize, num_passwords: u32, bu
     }
 }
 
-// Копирует пароли из `text_view` в буфер обмена
-fn handle_copy_btn_clicked(text_view: &TextView) {
-    let clipboard = text_view.get_clipboard(&SELECTION_CLIPBOARD);
-    let buffer = text_view.get_buffer().unwrap();
-    let text = buffer
-        .get_text(&buffer.get_start_iter(), &buffer.get_end_iter(), false)
-        .unwrap();
+// Копирует содержимое `text_view` в буфер обмена и возвращает количество строк.
+fn copy_passwords_to_clipboard(text_view: &TextView) -> Option<u32> {
+    let buffer = text_view.get_buffer()?;
 
-    clipboard.set_text(&text);
+    let start = buffer.get_start_iter();
+    let end = buffer.get_end_iter();
+    let text = buffer.get_text(&start, &end, false)?;
+
+    text_view.get_clipboard(&SELECTION_CLIPBOARD)
+        .set_text(&text);
+
+    Some(buffer.get_line_count() as u32)
 }
+
+#[derive(Debug)]
+pub enum Error {
+    GetBuffer,
+    GetTextFromBuffer,
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::GetBuffer => write!(f, "Не удалось получить буфер."),
+            Error::GetTextFromBuffer => write!(f, "Не удалось получить содержимое буфера."),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
