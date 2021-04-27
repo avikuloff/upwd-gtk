@@ -1,7 +1,7 @@
 extern crate gio;
 extern crate gtk;
 
-use std::{env, fmt};
+use std::env;
 use std::rc::Rc;
 use std::str::FromStr;
 
@@ -258,6 +258,7 @@ fn create_scrolled_window() -> ScrolledWindow {
 fn create_info_bar(message: &str, message_type: MessageType) -> InfoBar {
     let info_bar = InfoBar::new();
     let label = Label::new(Some(message));
+    label.set_selectable(true);
     info_bar.set_message_type(message_type);
     info_bar.set_valign(Align::Start);
     info_bar.set_show_close_button(true);
@@ -321,20 +322,3 @@ fn copy_passwords_to_clipboard(text_view: &TextView) -> Option<u32> {
 
     Some(buffer.get_line_count() as u32)
 }
-
-#[derive(Debug)]
-pub enum Error {
-    GetBuffer,
-    GetTextFromBuffer,
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::GetBuffer => write!(f, "Не удалось получить буфер."),
-            Error::GetTextFromBuffer => write!(f, "Не удалось получить содержимое буфера."),
-        }
-    }
-}
-
-impl std::error::Error for Error {}
