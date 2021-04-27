@@ -72,24 +72,24 @@ fn main() {
 
         // --------------- PASSWORD LENGTH --------------- //
         let length_box = Box::new(Orientation::Horizontal, 0);
-        let (length_label, length_scale) = create_length_scale();
-        length_scale.set_range(4.0, cfg.max_length() as f64);
+        let length_label = Label::new(Some("Length"));
+        let length_scale = Rc::new(Scale::with_range(Orientation::Horizontal, 4.0, cfg.max_length() as f64, 1.0));
         length_scale.set_value(cfg.length() as f64);
-        let length_scale = Rc::new(length_scale);
         length_box.pack_start(&length_label, false, false, 0);
         length_box.pack_end(&*length_scale, true, true, 5);
 
         // --------------- NUMBER OF PASSWORDS --------------- //
         let num_password_box = Box::new(Orientation::Vertical, 0);
-        let (num_password_label, num_password_spin_btn) = create_num_passwords_spin_btn();
+        let num_password_label = Label::new(Some("Number of passwords"));
+        let num_password_spin_btn = SpinButton::with_range(1.0, cfg.max_count() as f64, 1.0);
         num_password_spin_btn.set_range(1.0, cfg.max_count() as f64);
         num_password_spin_btn.set_value(cfg.count() as f64);
         num_password_box.add(&num_password_label);
         num_password_box.add(&num_password_spin_btn);
 
         // --------------- CREATE SHOW PASSWORDS WINDOW --------------- //
-        let scrolled_window = create_scrolled_window();
         let passwords_box = Box::new(Orientation::Vertical, 0);
+        let scrolled_window = create_scrolled_window();
         let (passwords_text_view, passwords_text_buffer) = create_passwords_text_view();
         scrolled_window.add(&passwords_text_view);
         passwords_box.pack_start(&scrolled_window, true, true, 0);
@@ -219,23 +219,6 @@ fn create_application_window(app: &Application) -> ApplicationWindow {
         .default_height(480)
         .title("Random Password Generator")
         .build()
-}
-
-fn create_length_scale() -> (Label, Scale) {
-    let length_scale = Scale::with_range(Orientation::Horizontal, 4.0, 64.0, 1.0);
-    length_scale.set_value(12.0);
-
-    (Label::new(Some("Length")), length_scale)
-}
-
-fn create_num_passwords_spin_btn() -> (Label, SpinButton) {
-    let num_password_spin_btn = SpinButton::with_range(1.0, 1000.0, 1.0);
-    num_password_spin_btn.set_value(1.0);
-
-    (
-        Label::new(Some("Number of passwords")),
-        num_password_spin_btn,
-    )
 }
 
 fn create_passwords_text_view() -> (TextView, TextBuffer) {
