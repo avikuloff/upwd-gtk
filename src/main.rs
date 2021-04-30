@@ -180,18 +180,16 @@ fn btn_generate_clicked(
     buffer: Rc<TextBuffer>,
 ) -> impl Fn(&Button) {
     move |_btn| {
+        buffer.set_text("");
         let pool = Pool::from_str(&pool.get_text()).unwrap();
+        let iter = &mut buffer.get_end_iter();
 
-        for i in 0..(count.get_value() as i32) {
+        for _ in 0..(count.get_value() as i32) {
             let password = generate_password(&pool, length.get_value() as usize);
-            if i == 0 {
-                buffer.set_text(&password);
-            } else {
-                let iter = &mut buffer.get_iter_at_line(i);
-                buffer.insert(iter, "\n");
-                buffer.insert(iter, &password);
-            }
+            buffer.insert(iter, &(password + "\n"));
         }
+
+        buffer.backspace(iter, false, true);
     }
 }
 
