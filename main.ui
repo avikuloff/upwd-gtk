@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+    <object id="window" class="GtkApplicationWindow">
+        <property name="visible">True</property>
+        <property name="default-width">360</property>
+        <property name="default-height">480</property>
+        <child type="titlebar">
+            <object class="GtkHeaderBar" id="header">
+                <property name="visible">True</property>
+                <property name="title">Random Password Generator</property>
+                <property name="show-close-button">True</property>
+                <child>
+                    <object class="GtkButton" id="save">
+                        <property name="visible">True</property>
+                        <property name="label" translatable="yes">Save</property>
+                        <property name="tooltip-text" translatable="yes">Save current configuration</property>
+                    </object>
+                    <packing>
+                        <property name="pack-type">start</property>
+                    </packing>
+                </child>
+            </object>
+        </child>
+        <child>
+            <object class="GtkOverlay" id="overlay">
+                <property name="visible">True</property>
+                <child type="overlay">
+                    <object class="GtkVBox" id="info-box">
+                        <property name="visible">1</property>
+                        <property name="spacing">5</property>
+                        <property name="valign">GTK_ALIGN_START</property>
+                    </object>
+                </child>
+                <child>
+                    <object class="GtkVBox" id="main-box">
+                        <property name="visible">1</property>
+                        <property name="spacing">5</property>
+                        <property name="margin">10</property>
+                        <child>
+                            <object class="GtkVBox" id="pool-box">
+                                <property name="visible">1</property>
+                                <child>
+                                    <object class="GtkFlowBox" id="pool-options">
+                                        <property name="visible">1</property>
+                                        <property name="selection-mode">GTK_SELECTION_NONE</property>
+                                    </object>
+                                </child>
+                                <child>
+                                    <object class="GtkEntry" id="pool">
+                                        <property name="visible">True</property>
+                                    </object>
+                                </child>
+                            </object>
+                            <packing>
+                                <property name="expand">0</property>
+                            </packing>
+                        </child>
+                        <child>
+                            <object class="GtkHBox">
+                                <property name="visible">1</property>
+                                <child>
+                                    <object class="GtkLabel">
+                                        <property name="visible">1</property>
+                                        <property name="label" translatable="yes">Length</property>
+                                    </object>
+                                    <packing>
+                                        <property name="expand">0</property>
+                                    </packing>
+                                </child>
+                                <child>
+                                    <object class="GtkHScale" id="length">
+                                        <property name="visible">1</property>
+                                        <property name="digits">0</property>
+                                    </object>
+                                    <packing>
+                                        <property name="pack-type">end</property>
+                                        <property name="expand">1</property>
+                                        <property name="padding">5</property>
+                                    </packing>
+                                </child>
+                            </object>
+                            <packing>
+                                <property name="expand">0</property>
+                            </packing>
+                        </child>
+                        <child>
+                            <object class="GtkVBox">
+                                <property name="visible">1</property>
+                                <child>
+                                    <object class="GtkLabel">
+                                        <property name="visible">1</property>
+                                        <property name="label" translatable="yes">Number of passwords</property>
+                                    </object>
+                                </child>
+                                <child>
+                                    <object class="GtkSpinButton" id="count">
+                                        <property name="visible">1</property>
+                                    </object>
+                                </child>
+                            </object>
+                            <packing>
+                                <property name="expand">0</property>
+                            </packing>
+                        </child>
+                        <child>
+                            <object class="GtkTextBuffer" id="text-buffer">
+                            </object>
+                            <object class="GtkScrolledWindow">
+                                <property name="visible">1</property>
+                                <property name="shadow_type">in</property>
+                                <child>
+                                    <object class="GtkTextView" id="passwords">
+                                        <property name="visible">1</property>
+                                        <property name="top-margin">3</property>
+                                        <property name="bottom-margin">3</property>
+                                        <property name="left-margin">3</property>
+                                        <property name="right-margin">3</property>
+                                        <property name="buffer">text-buffer</property>
+                                    </object>
+                                </child>
+                            </object>
+                        </child>
+                        <child>
+                            <object class="GtkLevelBar" id="strong-meter">
+                                <property name="visible">1</property>
+                                <property name="min-value">0</property>
+                                <property name="max-value">5</property>
+                                <property name="mode">GTK_LEVEL_BAR_MODE_DISCRETE</property>
+                            </object>
+                            <packing>
+                                <property name="expand">0</property>
+                            </packing>
+                        </child>
+                        <child>
+                            <object class="GtkHButtonBox">
+                                <property name="visible">1</property>
+                                <property name="layout-style">GTK_BUTTONBOX_EXPAND</property>
+                                <child>
+                                    <object class="GtkButton" id="generate">
+                                        <property name="visible">1</property>
+                                        <property name="label" translatable="yes">Generate</property>
+                                    </object>
+                                </child>
+                                <child>
+                                    <object class="GtkButton" id="copy">
+                                        <property name="visible">1</property>
+                                        <property name="label" translatable="yes">Copy</property>
+                                        <property name="tooltip-text" translatable="yes">Copy to clipboard</property>
+                                    </object>
+                                </child>
+                            </object>
+                            <packing>
+                                <property name="expand">0</property>
+                            </packing>
+                        </child>
+                    </object>
+                </child>
+            </object>
+        </child>
+    </object>
+</interface>

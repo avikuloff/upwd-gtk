@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use confy::ConfyError;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -56,10 +56,10 @@ impl PoolOption {
 
 impl Default for Config {
     fn default() -> Self {
-        const UPPERS: &'static str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        const LOWERS: &'static str = "abcdefghijklmnopqrstuvwxyz";
-        const DIGITS: &'static str = "0123456789";
-        const SYMBOLS: &'static str = "*&^%$#@!~";
+        const UPPERS: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        const LOWERS: &str = "abcdefghijklmnopqrstuvwxyz";
+        const DIGITS: &str = "0123456789";
+        const SYMBOLS: &str = "*&^%$#@!~";
 
         let mut pool_options = Vec::with_capacity(4);
         pool_options.push(PoolOption::new("Use UPPERCASE letters", UPPERS, true));

@@ -5,10 +5,12 @@ use std::env;
 use std::rc::Rc;
 use std::str::FromStr;
 
-use gdk::SELECTION_CLIPBOARD;
 use gio::prelude::*;
 use gtk::prelude::*;
-use gtk::{Application, ApplicationWindow, Box, Button, ButtonBoxBuilder, ButtonBoxStyle, CheckButton, Entry, EntryBuilder, HeaderBarBuilder, Label, LevelBar, LevelBarMode, Orientation, PolicyType, Scale, ScrolledWindow, ScrolledWindowBuilder, SpinButton, TextBuffer, TextBufferBuilder, TextView, TextViewBuilder, FlowBox, SelectionMode, Overlay, InfoBar, Align, MessageType};
+use gtk::{
+    Adjustment, Align, ApplicationWindow, Box, Builder, Button, CheckButton, Clipboard, Entry,
+    FlowBox, InfoBar, Label, LevelBar, MessageType, Scale, SpinButton, TextBuffer,
+};
 use upwd_lib::{calculate_entropy, generate_password, Pool};
 
 // To import all needed traits.
@@ -25,217 +27,224 @@ fn main() {
 
     uiapp.connect_activate(|app| {
         let cfg: Rc<Config> = Rc::new(Config::load());
-        // --------------- CREATE MAIN WINDOW --------------- //
-        let win = create_application_window(app);
+        let builder = Builder::from_file("/home/andrew/IdeaProjects/upwd-gtk/main.ui");
+        let win: ApplicationWindow = builder.get_object("window").unwrap();
 
-        // --------------- CREATE HEADER BAR --------------- //
-        let header = HeaderBarBuilder::new()
-            .title("Random Password Generator")
-            .show_close_button(true)
-            .has_subtitle(false)
-            .build();
-        let save_btn = Button::with_label("Save");
-        save_btn.set_tooltip_text(Some("Save current configuration"));
-        header.pack_start(&save_btn);
+        let btn_save: Rc<Button> = Rc::new(builder.get_object("save").unwrap());
 
-        // --------------- CREATE OVERLAY --------------- //
-        let overlay = Overlay::new();
+        let info_box: Rc<Box> = Rc::new(builder.get_object("info-box").unwrap());
 
-        // --------------- CREATE INFOBAR BOX --------------- //
-        let info_box = Rc::new(Box::new(Orientation::Vertical, 5));
-        info_box.set_valign(Align::Start);
-
-        // --------------- CREATE MAIN CONTAINER --------------- //
-        let main_box = Box::new(Orientation::Vertical, 5);
-        main_box.set_property_margin(10);
-
-        // --------------- POOL CUSTOMIZATION --------------- //
-        let pool_box = Box::new(Orientation::Vertical, 0);
-        let pool_entry = Rc::new(EntryBuilder::new().text(cfg.pool()).build());
-
-        let pool_options_box = FlowBox::new();
-        pool_options_box.set_selection_mode(SelectionMode::None);
+        let pool_options_box: FlowBox = builder.get_object("pool-options").unwrap();
+        let pool_entry: Rc<Entry> = Rc::new(builder.get_object("pool").unwrap());
+        pool_entry.set_text(cfg.pool());
         let pool_options = cfg.pool_options().clone();
         for item in pool_options {
             let chk_btn = CheckButton::with_label(item.name());
             chk_btn.set_active(item.checked());
+            chk_btn.show();
             pool_options_box.add(&chk_btn);
 
-            let pool_entry = pool_entry.clone();
-            chk_btn.connect_toggled(move |chk_btn| {
-                handle_chk_btn_toggled(chk_btn, &*pool_entry, item.value())
-            });
+            chk_btn.connect_toggled(pool_option_toggled(
+                &chk_btn,
+                pool_entry.clone(),
+                Rc::new(item.value().to_owned()),
+            ));
         }
 
-        pool_box.add(&pool_options_box);
-        pool_box.add(&*pool_entry);
+        let length: Rc<Scale> = Rc::new(builder.get_object("length").unwrap());
+        length.set_adjustment(&Adjustment::new(
+            cfg.length() as f64,
+            4.0,
+            cfg.max_length() as f64,
+            1.0,
+            0.0,
+            0.0,
+        ));
 
-        // --------------- PASSWORD LENGTH --------------- //
-        let length_box = Box::new(Orientation::Horizontal, 0);
-        let length_label = Label::new(Some("Length"));
-        let length_scale = Rc::new(Scale::with_range(Orientation::Horizontal, 4.0, cfg.max_length() as f64, 1.0));
-        length_scale.set_value(cfg.length() as f64);
-        length_box.pack_start(&length_label, false, false, 0);
-        length_box.pack_end(&*length_scale, true, true, 5);
+        let count: Rc<SpinButton> = Rc::new(builder.get_object("count").unwrap());
+        count.set_adjustment(&Adjustment::new(
+            cfg.count() as f64,
+            1.0,
+            cfg.max_count() as f64,
+            1.0,
+            0.0,
+            0.0,
+        ));
 
-        // --------------- NUMBER OF PASSWORDS --------------- //
-        let num_password_box = Box::new(Orientation::Vertical, 0);
-        let num_password_label = Label::new(Some("Number of passwords"));
-        let num_password_spin_btn = SpinButton::with_range(1.0, cfg.max_count() as f64, 1.0);
-        num_password_spin_btn.set_range(1.0, cfg.max_count() as f64);
-        num_password_spin_btn.set_value(cfg.count() as f64);
-        num_password_box.add(&num_password_label);
-        num_password_box.add(&num_password_spin_btn);
+        let text_buffer: Rc<TextBuffer> = Rc::new(builder.get_object("text-buffer").unwrap());
 
-        // --------------- CREATE SHOW PASSWORDS WINDOW --------------- //
-        let passwords_box = Box::new(Orientation::Vertical, 0);
-        let scrolled_window = create_scrolled_window();
-        let (passwords_text_view, passwords_text_buffer) = create_passwords_text_view();
-        scrolled_window.add(&passwords_text_view);
-        passwords_box.pack_start(&scrolled_window, true, true, 0);
-
-        // --------------- PASSWORD STRENGTH INDICATOR --------------- //
-        let pwd_strength = Rc::new(LevelBar::new_for_interval(0.0, 5.0));
-        pwd_strength.set_mode(LevelBarMode::Discrete);
+        let strong_meter: Rc<LevelBar> = Rc::new(builder.get_object("strong-meter").unwrap());
         {
             let pool = Pool::from_str(&pool_entry.get_text()).unwrap();
-            let entropy = calculate_entropy(length_scale.get_value() as usize, pool.len());
-            pwd_strength.set_value(entropy / 20.0);
+            let entropy = calculate_entropy(length.get_value() as usize, pool.len());
+            strong_meter.set_value(entropy / 20.0);
         }
 
-        // --------------- GENERATE AND COPY PASSWORDS BUTTONS --------------- //
-        let btn_box = ButtonBoxBuilder::new()
-            .orientation(Orientation::Horizontal)
-            .layout_style(ButtonBoxStyle::Expand)
-            .build();
-        let btn_generate = Rc::new(Button::with_label("Generate"));
-        let btn_copy = Button::with_label("Copy");
-        btn_copy.set_tooltip_text(Some("Copy to clipboard"));
-        btn_box.add(&*btn_generate);
-        btn_box.add(&btn_copy);
+        let btn_generate: Rc<Button> = Rc::new(builder.get_object("generate").unwrap());
+        let btn_copy: Rc<Button> = Rc::new(builder.get_object("copy").unwrap());
 
-        // --------------- POPULATE MAIN CONTAINER --------------- //
-        main_box.add(&pool_box);
-        main_box.add(&length_box);
-        main_box.add(&num_password_box);
-        main_box.pack_start(&passwords_box, true, true, 0);
-        main_box.add(&*pwd_strength);
-        main_box.pack_end(&btn_box, false, false, 0);
+        app.add_window(&win);
 
-        // --------------- POPULATE OVERLAY --------------- //
-        overlay.add(&main_box);
-        overlay.add_overlay(&*info_box);
-
-        // --------------- POPULATE MAIN WINDOW --------------- //
-        win.set_titlebar(Some(&header));
-        win.add(&overlay);
-        win.show_all();
-
-        // --------------- HANDLE SIGNALS --------------- //
-        {
-            let btn_generate = btn_generate.clone();
-            let length_scale = length_scale.clone();
-            let pwd_strength = pwd_strength.clone();
-            pool_entry.clone().connect_changed(move |entry| {
-                handle_pool_entry_changed(entry, &*btn_generate);
-
-                let pool = Pool::from_str(&entry.get_text()).unwrap();
-                let entropy = calculate_entropy(length_scale.get_value() as usize, pool.len());
-                pwd_strength.set_value(entropy / 20.0);
-            });
-        }
-        {
-            let pool_entry = pool_entry.clone();
-            let pwd_strength = pwd_strength.clone();
-            length_scale.connect_value_changed(move |length| {
-                let pool = Pool::from_str(&*pool_entry.get_text()).unwrap();
-                let entropy = calculate_entropy(length.get_value() as usize, pool.len());
-                pwd_strength.set_value(entropy / 20.0);
-            });
-        }
-        {
-            let pool_entry = pool_entry.clone();
-            let length_scale = length_scale.clone();
-            let num_password_spin_btn = num_password_spin_btn.clone();
-            btn_generate.connect_clicked(move |_btn| {
-                handle_generate_btn_clicked(
-                    &pool_entry.get_text(),
-                    length_scale.get_value() as usize,
-                    num_password_spin_btn.get_value() as u32,
-                    &passwords_text_buffer,
-                )
-            });
-        }
-        {
-            let info_box = info_box.clone();
-            btn_copy.connect_clicked(move |_btn| {
-                let info_bar = match copy_passwords_to_clipboard(&passwords_text_view) {
-                    Some(_n) => create_info_bar("Скопировано в буфер обмена", MessageType::Info),
-                    None => create_info_bar("Не удалось скопировать содержимое текстового поля в буфер обмена.", MessageType::Error)
-                };
-                info_box.add(&info_bar);
-                info_bar.show_all();
-                timeout_add_seconds(5, move || unsafe {
-                    info_bar.destroy();
-                    Continue(false)
-                });
-            });
-        }
-        {
-            let cfg = cfg.clone();
-            let info_box = info_box.clone();
-            save_btn.connect_clicked(move |_btn| {
-                let cfg = ConfigBuilder::new()
-                    .pool_options(cfg.pool_options().to_owned())
-                    .pool(pool_entry.get_text().to_owned())
-                    .length(length_scale.get_value() as u8)
-                    .count(num_password_spin_btn.get_value() as u32)
-                    .max_length(cfg.max_length())
-                    .max_count(cfg.max_count())
-                    .build();
-
-                let info_bar = match cfg.save() {
-                    Ok(_) => create_info_bar("Saved.", MessageType::Info),
-                    Err(e) => create_info_bar(&e.to_string(), MessageType::Error)
-                };
-                info_box.add(&info_bar);
-                info_bar.show_all();
-                timeout_add_seconds(5, move || unsafe {
-                    info_bar.destroy();
-                    Continue(false)
-                });
-
-            });
-        }
-        // --------------- END HANDLE SIGNALS --------------- //
+        pool_entry.connect_changed(pool_changed(
+            &pool_entry,
+            length.clone(),
+            strong_meter.clone(),
+            btn_generate.clone(),
+        ));
+        length.connect_value_changed(length_changed(
+            &length,
+            pool_entry.clone(),
+            strong_meter.clone(),
+        ));
+        btn_generate.connect_clicked(btn_generate_clicked(
+            &btn_generate,
+            pool_entry.clone(),
+            length.clone(),
+            count.clone(),
+            text_buffer.clone(),
+        ));
+        btn_copy.connect_clicked(btn_copy_clicked(
+            &btn_copy,
+            info_box.clone(),
+            text_buffer.clone(),
+        ));
+        btn_save.connect_clicked(btn_save_clicked(
+            &btn_save,
+            cfg.clone(),
+            info_box.clone(),
+            pool_entry.clone(),
+            length.clone(),
+            count.clone(),
+        ));
     });
+
     uiapp.run(&env::args().collect::<Vec<_>>());
 }
 
-fn create_application_window(app: &Application) -> ApplicationWindow {
-    gtk::ApplicationWindowBuilder::new()
-        .application(app)
-        .default_width(360)
-        .default_height(480)
-        .title("Random Password Generator")
-        .build()
+fn pool_option_toggled(
+    _chk_btn: &CheckButton,
+    entry: Rc<Entry>,
+    char_set: Rc<String>,
+) -> impl Fn(&CheckButton) {
+    move |chk_btn| {
+        let mut pool = Pool::from_str(&entry.get_text()).unwrap();
+
+        if chk_btn.get_active() {
+            pool.extend_from_string(&*char_set);
+        } else {
+            char_set.chars().for_each(|ch| {
+                pool.shift_remove(&ch);
+            });
+        }
+
+        entry.set_text(&pool.to_string());
+    }
 }
 
-fn create_passwords_text_view() -> (TextView, TextBuffer) {
-    let buffer = TextBufferBuilder::new().text("").build();
-    let view = TextViewBuilder::new()
-        .buffer(&buffer)
-        .border_width(3)
-        .build();
+fn pool_changed(
+    _entry: &Entry,
+    length_scale: Rc<Scale>,
+    strong_meter: Rc<LevelBar>,
+    btn_generate: Rc<Button>,
+) -> impl Fn(&Entry) {
+    move |entry| {
+        let pool = Pool::from_str(&entry.get_text()).unwrap();
+        let pool_len = pool.len();
+        let entropy = calculate_entropy(length_scale.get_value() as usize, pool_len);
 
-    (view, buffer)
+        strong_meter.set_value(entropy / 20.0);
+
+        if pool_len == 0 {
+            btn_generate.set_sensitive(false);
+        } else if !btn_generate.get_sensitive() {
+            btn_generate.set_sensitive(true);
+        }
+    }
 }
 
-fn create_scrolled_window() -> ScrolledWindow {
-    ScrolledWindowBuilder::new()
-        .min_content_height(65)
-        .vscrollbar_policy(PolicyType::Always)
-        .build()
+fn length_changed(_lenght: &Scale, pool: Rc<Entry>, strong_meter: Rc<LevelBar>) -> impl Fn(&Scale) {
+    move |length| {
+        let pool = Pool::from_str(&pool.get_text()).unwrap();
+        let pool_len = pool.len();
+        let entropy = calculate_entropy(length.get_value() as usize, pool_len);
+
+        strong_meter.set_value(entropy / 20.0);
+    }
+}
+
+fn btn_generate_clicked(
+    _btn: &Button,
+    pool: Rc<Entry>,
+    length: Rc<Scale>,
+    count: Rc<SpinButton>,
+    buffer: Rc<TextBuffer>,
+) -> impl Fn(&Button) {
+    move |_btn| {
+        let pool = Pool::from_str(&pool.get_text()).unwrap();
+
+        for i in 0..(count.get_value() as i32) {
+            let password = generate_password(&pool, length.get_value() as usize);
+            if i == 0 {
+                buffer.set_text(&password);
+            } else {
+                let iter = &mut buffer.get_iter_at_line(i);
+                buffer.insert(iter, "\n");
+                buffer.insert(iter, &password);
+            }
+        }
+    }
+}
+
+fn btn_copy_clicked(_btn: &Button, info_box: Rc<Box>, buffer: Rc<TextBuffer>) -> impl Fn(&Button) {
+    move |_btn| {
+        let info_bar = match copy_passwords_to_clipboard(buffer.clone()) {
+            Ok(_) => create_info_bar("Скопировано в буфер обмена", MessageType::Info),
+            Err(e) => create_info_bar(
+                &format!(
+                    "Не удалось скопировать содержимое текстового поля в буфер обмена. Ошибка: {}",
+                    e
+                ),
+                MessageType::Error,
+            ),
+        };
+        info_box.add(&info_bar);
+        info_bar.show_all();
+        timeout_add_seconds(5, move || unsafe {
+            info_bar.destroy();
+            Continue(false)
+        });
+    }
+}
+
+fn btn_save_clicked(
+    _btn: &Button,
+    cfg: Rc<Config>,
+    info_box: Rc<Box>,
+    pool: Rc<Entry>,
+    length: Rc<Scale>,
+    count: Rc<SpinButton>,
+) -> impl Fn(&Button) {
+    move |_btn| {
+        let cfg = ConfigBuilder::new()
+            .pool_options(cfg.pool_options().to_owned())
+            .pool(pool.get_text().to_owned())
+            .length(length.get_value() as u8)
+            .count(count.get_value() as u32)
+            .max_length(cfg.max_length())
+            .max_count(cfg.max_count())
+            .build();
+
+        let info_bar = match cfg.save() {
+            Ok(_) => create_info_bar("Saved.", MessageType::Info),
+            Err(e) => create_info_bar(&e.to_string(), MessageType::Error),
+        };
+        info_box.add(&info_bar);
+        info_bar.show_all();
+        timeout_add_seconds(5, move || unsafe {
+            info_bar.destroy();
+            Continue(false)
+        });
+    }
 }
 
 fn create_info_bar(message: &str, message_type: MessageType) -> InfoBar {
@@ -249,59 +258,17 @@ fn create_info_bar(message: &str, message_type: MessageType) -> InfoBar {
     info_bar
 }
 
-// В зависимости от состояния `chk_btn` добавляет или удаляет символы `string` из `entry`
-fn handle_chk_btn_toggled(chk_btn: &CheckButton, entry: &Entry, string: &str) {
-    let mut pool = Pool::from_str(&entry.get_text()).unwrap();
+// Копирует содержимое текстового буфера в буфер обмена.
+fn copy_passwords_to_clipboard(buffer: Rc<TextBuffer>) -> Result<(), String> {
+    let clipboard = &Clipboard::get(&gdk::ATOM_NONE);
+    let (start, end) = buffer.get_bounds();
+    let text = buffer.get_text(&start, &end, false);
 
-    if chk_btn.get_active() {
-        pool.extend_from_string(string);
-    } else {
-        string.chars().for_each(|ch| {
-            pool.shift_remove(&ch);
-        });
-    }
+    match text {
+        Some(val) => clipboard.set_text(&val),
+        None => return Err("Не удалось получить текст из буфера.".to_owned()),
+    };
 
-    entry.set_text(&pool.to_string());
-}
-
-// Если `entry` не содержит ни одного символа, то кнопка `btn_generate` блокируется
-fn handle_pool_entry_changed(entry: &Entry, btn_generate: &Button) {
-    let pool = Pool::from_str(&entry.get_text()).unwrap();
-
-    if pool.len() == 0 {
-        btn_generate.set_sensitive(false);
-    } else {
-        btn_generate.set_sensitive(true);
-    }
-}
-
-// Создает `num_passwords` паролей длиной `length` символов, используя символы определенные в `pool`.
-// Перезаписывает `buffer`
-fn handle_generate_btn_clicked(pool: &str, length: usize, num_passwords: u32, buffer: &TextBuffer) {
-    let pool = Pool::from_str(pool).unwrap();
-
-    for i in 0..num_passwords {
-        let password = generate_password(&pool, length);
-        if i == 0 {
-            buffer.set_text(&password);
-        } else {
-            let iter = &mut buffer.get_iter_at_line(i as i32);
-            buffer.insert(iter, "\n");
-            buffer.insert(iter, &password);
-        }
-    }
-}
-
-// Копирует содержимое `text_view` в буфер обмена и возвращает количество строк.
-fn copy_passwords_to_clipboard(text_view: &TextView) -> Option<u32> {
-    let buffer = text_view.get_buffer()?;
-
-    let start = buffer.get_start_iter();
-    let end = buffer.get_end_iter();
-    let text = buffer.get_text(&start, &end, false)?;
-
-    text_view.get_clipboard(&SELECTION_CLIPBOARD)
-        .set_text(&text);
-
-    Some(buffer.get_line_count() as u32)
+    buffer.copy_clipboard(clipboard);
+    Ok(())
 }
