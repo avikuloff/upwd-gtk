@@ -79,8 +79,8 @@ impl Default for Config {
 }
 
 impl Config {
-    pub fn load() -> Self {
-        confy::load("upwd-gtk").unwrap_or_default()
+    pub fn load() -> Result<Self, ConfyError> {
+        confy::load("upwd-gtk")
     }
 
     pub fn save(&self) -> Result<(), ConfyError> {

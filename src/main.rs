@@ -13,7 +13,6 @@ use gtk::{
 };
 use upwd_lib::{calculate_entropy, generate_password, Pool};
 
-// To import all needed traits.
 use crate::config::{Config, ConfigBuilder};
 
 mod config;
@@ -26,13 +25,29 @@ fn main() {
     .expect("Application::new failed");
 
     uiapp.connect_activate(|app| {
-        let cfg: Rc<Config> = Rc::new(Config::load());
         let builder = Builder::from_file("/home/andrew/IdeaProjects/upwd-gtk/main.ui");
         let win: ApplicationWindow = builder.get_object("window").unwrap();
 
         let btn_save: Rc<Button> = Rc::new(builder.get_object("save").unwrap());
 
         let info_box: Rc<Box> = Rc::new(builder.get_object("info-box").unwrap());
+
+        let cfg = {
+            let info_box = info_box.clone();
+            let cfg = Config::load().unwrap_or_else(move |e| {
+                let info_bar = create_info_bar(&format!("Загружена конфигурация по умолчанию.\n{}", e), MessageType::Warning);
+                info_box.add(&info_bar);
+                info_bar.show_all();
+                timeout_add_seconds(10, move || unsafe {
+                    info_bar.destroy();
+                    Continue(false)
+                });
+                Config::default()
+            });
+
+            Rc::new(cfg)
+        };
+
 
         let pool_options_box: FlowBox = builder.get_object("pool-options").unwrap();
         let pool_entry: Rc<Entry> = Rc::new(builder.get_object("pool").unwrap());
@@ -249,6 +264,7 @@ fn create_info_bar(message: &str, message_type: MessageType) -> InfoBar {
     let info_bar = InfoBar::new();
     let label = Label::new(Some(message));
     label.set_selectable(true);
+    label.set_line_wrap(true);
     info_bar.set_message_type(message_type);
     info_bar.set_valign(Align::Start);
     info_bar.set_show_close_button(true);
