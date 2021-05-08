@@ -28,9 +28,9 @@ fn main() {
         let builder = Builder::from_file("/home/andrew/IdeaProjects/upwd-gtk/main.ui");
         let win: ApplicationWindow = builder.get_object("window").unwrap();
 
-        let btn_save: Rc<Button> = Rc::new(builder.get_object("save").unwrap());
+        let btn_save: Button = builder.get_object("save").unwrap();
 
-        let info_box: Rc<Box> = Rc::new(builder.get_object("info-box").unwrap());
+        let info_box: Box = builder.get_object("info-box").unwrap();
 
         let cfg = {
             let info_box = info_box.clone();
@@ -48,9 +48,8 @@ fn main() {
             Rc::new(cfg)
         };
 
-
         let pool_options_box: FlowBox = builder.get_object("pool-options").unwrap();
-        let pool_entry: Rc<Entry> = Rc::new(builder.get_object("pool").unwrap());
+        let pool_entry: Entry = builder.get_object("pool").unwrap();
         pool_entry.set_text(cfg.pool());
         let pool_options = cfg.pool_options().clone();
         for item in pool_options {
@@ -62,11 +61,11 @@ fn main() {
             chk_btn.connect_toggled(pool_option_toggled(
                 &chk_btn,
                 pool_entry.clone(),
-                Rc::new(item.value().to_owned()),
+                item.value().to_owned(),
             ));
         }
 
-        let length: Rc<Scale> = Rc::new(builder.get_object("length").unwrap());
+        let length: Scale = builder.get_object("length").unwrap();
         length.set_adjustment(&Adjustment::new(
             cfg.length() as f64,
             4.0,
@@ -76,7 +75,7 @@ fn main() {
             0.0,
         ));
 
-        let count: Rc<SpinButton> = Rc::new(builder.get_object("count").unwrap());
+        let count: SpinButton = builder.get_object("count").unwrap();
         count.set_adjustment(&Adjustment::new(
             cfg.count() as f64,
             1.0,
@@ -86,17 +85,17 @@ fn main() {
             0.0,
         ));
 
-        let text_buffer: Rc<TextBuffer> = Rc::new(builder.get_object("text-buffer").unwrap());
+        let text_buffer: TextBuffer = builder.get_object("text-buffer").unwrap();
 
-        let strong_meter: Rc<LevelBar> = Rc::new(builder.get_object("strong-meter").unwrap());
+        let strong_meter: LevelBar = builder.get_object("strong-meter").unwrap();
         {
             let pool = Pool::from_str(&pool_entry.get_text()).unwrap();
             let entropy = calculate_entropy(length.get_value() as usize, pool.len());
             strong_meter.set_value(entropy / 20.0);
         }
 
-        let btn_generate: Rc<Button> = Rc::new(builder.get_object("generate").unwrap());
-        let btn_copy: Rc<Button> = Rc::new(builder.get_object("copy").unwrap());
+        let btn_generate: Button = builder.get_object("generate").unwrap();
+        let btn_copy: Button = builder.get_object("copy").unwrap();
 
         app.add_window(&win);
 
@@ -138,14 +137,14 @@ fn main() {
 
 fn pool_option_toggled(
     _chk_btn: &CheckButton,
-    entry: Rc<Entry>,
-    char_set: Rc<String>,
+    entry: Entry,
+    char_set: String,
 ) -> impl Fn(&CheckButton) {
     move |chk_btn| {
         let mut pool = Pool::from_str(&entry.get_text()).unwrap();
 
         if chk_btn.get_active() {
-            pool.extend_from_string(&*char_set);
+            pool.extend_from_string(&char_set);
         } else {
             char_set.chars().for_each(|ch| {
                 pool.shift_remove(&ch);
@@ -158,9 +157,9 @@ fn pool_option_toggled(
 
 fn pool_changed(
     _entry: &Entry,
-    length_scale: Rc<Scale>,
-    strong_meter: Rc<LevelBar>,
-    btn_generate: Rc<Button>,
+    length_scale: Scale,
+    strong_meter: LevelBar,
+    btn_generate: Button,
 ) -> impl Fn(&Entry) {
     move |entry| {
         let pool = Pool::from_str(&entry.get_text()).unwrap();
@@ -177,7 +176,7 @@ fn pool_changed(
     }
 }
 
-fn length_changed(_lenght: &Scale, pool: Rc<Entry>, strong_meter: Rc<LevelBar>) -> impl Fn(&Scale) {
+fn length_changed(_lenght: &Scale, pool: Entry, strong_meter: LevelBar) -> impl Fn(&Scale) {
     move |length| {
         let pool = Pool::from_str(&pool.get_text()).unwrap();
         let pool_len = pool.len();
@@ -189,10 +188,10 @@ fn length_changed(_lenght: &Scale, pool: Rc<Entry>, strong_meter: Rc<LevelBar>) 
 
 fn btn_generate_clicked(
     _btn: &Button,
-    pool: Rc<Entry>,
-    length: Rc<Scale>,
-    count: Rc<SpinButton>,
-    buffer: Rc<TextBuffer>,
+    pool: Entry,
+    length: Scale,
+    count: SpinButton,
+    buffer: TextBuffer,
 ) -> impl Fn(&Button) {
     move |_btn| {
         buffer.set_text("");
@@ -208,7 +207,7 @@ fn btn_generate_clicked(
     }
 }
 
-fn btn_copy_clicked(_btn: &Button, info_box: Rc<Box>, buffer: Rc<TextBuffer>) -> impl Fn(&Button) {
+fn btn_copy_clicked(_btn: &Button, info_box: Box, buffer: TextBuffer) -> impl Fn(&Button) {
     move |_btn| {
         let info_bar = match copy_passwords_to_clipboard(buffer.clone()) {
             Ok(_) => create_info_bar("Скопировано в буфер обмена", MessageType::Info),
@@ -232,10 +231,10 @@ fn btn_copy_clicked(_btn: &Button, info_box: Rc<Box>, buffer: Rc<TextBuffer>) ->
 fn btn_save_clicked(
     _btn: &Button,
     cfg: Rc<Config>,
-    info_box: Rc<Box>,
-    pool: Rc<Entry>,
-    length: Rc<Scale>,
-    count: Rc<SpinButton>,
+    info_box: Box,
+    pool: Entry,
+    length: Scale,
+    count: SpinButton,
 ) -> impl Fn(&Button) {
     move |_btn| {
         let cfg = ConfigBuilder::new()
@@ -273,7 +272,7 @@ fn create_info_bar(message: &str, message_type: MessageType) -> InfoBar {
 }
 
 // Копирует содержимое текстового буфера в буфер обмена.
-fn copy_passwords_to_clipboard(buffer: Rc<TextBuffer>) -> Result<(), String> {
+fn copy_passwords_to_clipboard(buffer: TextBuffer) -> Result<(), String> {
     let clipboard = &Clipboard::get(&gdk::ATOM_NONE);
     let (start, end) = buffer.get_bounds();
     let text = buffer.get_text(&start, &end, false);
