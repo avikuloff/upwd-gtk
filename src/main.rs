@@ -7,10 +7,7 @@ use std::str::FromStr;
 
 use gio::prelude::*;
 use gtk::prelude::*;
-use gtk::{
-    Adjustment, Align, ApplicationWindow, Box, Builder, Button, CheckButton, Clipboard, Entry,
-    InfoBar, Label, LevelBar, MessageType, Scale, SpinButton, TextBuffer,
-};
+use gtk::{Adjustment, Align, ApplicationWindow, Box, Builder, Button, CheckButton, Clipboard, Entry, InfoBar, Label, LevelBar, MessageType, Scale, SpinButton, TextBuffer, ResponseType};
 use upwd_lib::{calculate_entropy, generate_password, Pool};
 
 use crate::config::Config;
@@ -279,6 +276,13 @@ fn create_info_bar(message: &str, message_type: MessageType) -> InfoBar {
     info_bar.set_valign(Align::Start);
     info_bar.set_show_close_button(true);
     info_bar.get_content_area().add(&label);
+
+    info_bar.connect_response(|info_bar, response_type| unsafe {
+        if response_type == ResponseType::Close {
+            info_bar.destroy();
+        }
+    });
+
     info_bar
 }
 
