@@ -43,6 +43,34 @@
                                     <object class="GtkFlowBox" id="pool-options">
                                         <property name="visible">1</property>
                                         <property name="selection-mode">GTK_SELECTION_NONE</property>
+                                        <child>
+                                            <object class="GtkCheckButton" id="uppers">
+                                                <property name="visible">1</property>
+                                                <property name="label" translatable="yes">Uppercase letters</property>
+                                                <property name="active">1</property>
+                                            </object>
+                                        </child>
+                                        <child>
+                                            <object class="GtkCheckButton" id="lowers">
+                                                <property name="visible">1</property>
+                                                <property name="label" translatable="yes">Lowercase letters</property>
+                                                <property name="active">1</property>
+                                            </object>
+                                        </child>
+                                        <child>
+                                            <object class="GtkCheckButton" id="digits">
+                                                <property name="visible">1</property>
+                                                <property name="label" translatable="yes">Digits</property>
+                                                <property name="active">1</property>
+                                            </object>
+                                        </child>
+                                        <child>
+                                            <object class="GtkCheckButton" id="symbols">
+                                                <property name="visible">1</property>
+                                                <property name="label" translatable="yes">Symbols</property>
+                                                <property name="active">0</property>
+                                            </object>
+                                        </child>
                                     </object>
                                 </child>
                                 <child>

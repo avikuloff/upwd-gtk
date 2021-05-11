@@ -9,11 +9,12 @@ use gio::prelude::*;
 use gtk::prelude::*;
 use gtk::{
     Adjustment, Align, ApplicationWindow, Box, Builder, Button, CheckButton, Clipboard, Entry,
-    FlowBox, InfoBar, Label, LevelBar, MessageType, Scale, SpinButton, TextBuffer,
+    InfoBar, Label, LevelBar, MessageType, Scale, SpinButton, TextBuffer,
 };
 use upwd_lib::{calculate_entropy, generate_password, Pool};
 
-use crate::config::{Config, ConfigBuilder};
+use crate::config::Config;
+use std::ops::Deref;
 
 mod config;
 
@@ -35,7 +36,10 @@ fn main() {
         let cfg = {
             let info_box = info_box.clone();
             let cfg = Config::load().unwrap_or_else(move |e| {
-                let info_bar = create_info_bar(&format!("Загружена конфигурация по умолчанию.\n{}", e), MessageType::Warning);
+                let info_bar = create_info_bar(
+                    &format!("Загружена конфигурация по умолчанию.\n{}", e),
+                    MessageType::Warning,
+                );
                 info_box.add(&info_bar);
                 info_bar.show_all();
                 timeout_add_seconds(10, move || unsafe {
@@ -48,22 +52,13 @@ fn main() {
             Rc::new(cfg)
         };
 
-        let pool_options_box: FlowBox = builder.get_object("pool-options").unwrap();
         let pool_entry: Entry = builder.get_object("pool").unwrap();
         pool_entry.set_text(cfg.pool());
-        let pool_options = cfg.pool_options().clone();
-        for item in pool_options {
-            let chk_btn = CheckButton::with_label(item.name());
-            chk_btn.set_active(item.checked());
-            chk_btn.show();
-            pool_options_box.add(&chk_btn);
 
-            chk_btn.connect_toggled(pool_option_toggled(
-                &chk_btn,
-                pool_entry.clone(),
-                item.value().to_owned(),
-            ));
-        }
+        let uppers: CheckButton = builder.get_object("uppers").unwrap();
+        let lowers: CheckButton = builder.get_object("lowers").unwrap();
+        let digits: CheckButton = builder.get_object("digits").unwrap();
+        let symbols: CheckButton = builder.get_object("symbols").unwrap();
 
         let length: Scale = builder.get_object("length").unwrap();
         length.set_adjustment(&Adjustment::new(
@@ -99,6 +94,26 @@ fn main() {
 
         app.add_window(&win);
 
+        uppers.connect_toggled(pool_option_toggled(
+            &uppers,
+            pool_entry.clone(),
+            cfg.uppers().to_owned(),
+        ));
+        lowers.connect_toggled(pool_option_toggled(
+            &lowers,
+            pool_entry.clone(),
+            cfg.lowers().to_owned(),
+        ));
+        digits.connect_toggled(pool_option_toggled(
+            &digits,
+            pool_entry.clone(),
+            cfg.digits().to_owned(),
+        ));
+        symbols.connect_toggled(pool_option_toggled(
+            &symbols,
+            pool_entry.clone(),
+            cfg.symbols().to_owned(),
+        ));
         pool_entry.connect_changed(pool_changed(
             &pool_entry,
             length.clone(),
@@ -237,14 +252,10 @@ fn btn_save_clicked(
     count: SpinButton,
 ) -> impl Fn(&Button) {
     move |_btn| {
-        let cfg = ConfigBuilder::new()
-            .pool_options(cfg.pool_options().to_owned())
-            .pool(pool.get_text().to_owned())
-            .length(length.get_value() as u8)
-            .count(count.get_value() as u32)
-            .max_length(cfg.max_length())
-            .max_count(cfg.max_count())
-            .build();
+        let mut cfg = cfg.deref().clone();
+        cfg.set_pool(pool.get_text().to_owned());
+        cfg.set_length(length.get_value() as u8);
+        cfg.set_count(count.get_value() as u32);
 
         let info_bar = match cfg.save() {
             Ok(_) => create_info_bar("Saved.", MessageType::Info),
