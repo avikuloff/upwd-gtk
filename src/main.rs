@@ -39,7 +39,7 @@ fn main() {
                 );
                 info_box.add(&info_bar);
                 info_bar.show_all();
-                timeout_add_seconds(10, move || unsafe {
+                glib::timeout_add_seconds_local(10, move || unsafe {
                     info_bar.destroy();
                     Continue(false)
                 });
@@ -233,7 +233,7 @@ fn btn_copy_clicked(_btn: &Button, info_box: Box, buffer: TextBuffer) -> impl Fn
         };
         info_box.add(&info_bar);
         info_bar.show_all();
-        timeout_add_seconds(5, move || unsafe {
+        glib::timeout_add_seconds_local(5, move || unsafe {
             info_bar.destroy();
             Continue(false)
         });
@@ -260,7 +260,7 @@ fn btn_save_clicked(
         };
         info_box.add(&info_bar);
         info_bar.show_all();
-        timeout_add_seconds(5, move || unsafe {
+        glib::timeout_add_seconds_local(5, move || unsafe {
             info_bar.destroy();
             Continue(false)
         });
