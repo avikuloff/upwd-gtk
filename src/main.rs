@@ -2,16 +2,19 @@ extern crate gio;
 extern crate gtk;
 
 use std::env;
+use std::ops::Deref;
 use std::rc::Rc;
 use std::str::FromStr;
 
 use gio::prelude::*;
 use gtk::prelude::*;
-use gtk::{Adjustment, Align, ApplicationWindow, Box, Builder, Button, CheckButton, Clipboard, Entry, InfoBar, Label, LevelBar, MessageType, Scale, SpinButton, TextBuffer, ResponseType};
+use gtk::{
+    Adjustment, ApplicationWindow, Box, Builder, Button, CheckButton, Clipboard, Entry, InfoBar,
+    Label, LevelBar, MessageType, ResponseType, Scale, SpinButton, TextBuffer,
+};
 use upwd_lib::{calculate_entropy, generate_password, Pool};
 
 use crate::config::Config;
-use std::ops::Deref;
 
 mod config;
 
@@ -36,13 +39,11 @@ fn main() {
                 let info_bar = create_info_bar(
                     &format!("Загружена конфигурация по умолчанию.\n{}", e),
                     MessageType::Warning,
+                    None,
                 );
                 info_box.add(&info_bar);
                 info_bar.show_all();
-                glib::timeout_add_seconds_local(10, move || unsafe {
-                    info_bar.destroy();
-                    Continue(false)
-                });
+
                 Config::default()
             });
 
@@ -222,21 +223,18 @@ fn btn_generate_clicked(
 fn btn_copy_clicked(_btn: &Button, info_box: Box, buffer: TextBuffer) -> impl Fn(&Button) {
     move |_btn| {
         let info_bar = match copy_passwords_to_clipboard(buffer.clone()) {
-            Ok(_) => create_info_bar("Скопировано в буфер обмена", MessageType::Info),
+            Ok(_) => create_info_bar("Скопировано в буфер обмена", MessageType::Info, Some(3)),
             Err(e) => create_info_bar(
                 &format!(
-                    "Не удалось скопировать содержимое текстового поля в буфер обмена. Ошибка: {}",
+                    "Не удалось скопировать содержимое текстового поля в буфер обмена.\n{}",
                     e
                 ),
                 MessageType::Error,
+                None,
             ),
         };
         info_box.add(&info_bar);
         info_bar.show_all();
-        glib::timeout_add_seconds_local(5, move || unsafe {
-            info_bar.destroy();
-            Continue(false)
-        });
     }
 }
 
@@ -255,33 +253,37 @@ fn btn_save_clicked(
         cfg.set_count(count.get_value() as u32);
 
         let info_bar = match cfg.save() {
-            Ok(_) => create_info_bar("Saved.", MessageType::Info),
-            Err(e) => create_info_bar(&e.to_string(), MessageType::Error),
+            Ok(_) => create_info_bar("Saved.", MessageType::Info, Some(5)),
+            Err(e) => create_info_bar(&e.to_string(), MessageType::Error, None),
         };
         info_box.add(&info_bar);
         info_bar.show_all();
-        glib::timeout_add_seconds_local(5, move || unsafe {
-            info_bar.destroy();
-            Continue(false)
-        });
     }
 }
 
-fn create_info_bar(message: &str, message_type: MessageType) -> InfoBar {
+fn create_info_bar(message: &str, message_type: MessageType, timeout: Option<u32>) -> InfoBar {
     let info_bar = InfoBar::new();
     let label = Label::new(Some(message));
     label.set_selectable(true);
     label.set_line_wrap(true);
     info_bar.set_message_type(message_type);
-    info_bar.set_valign(Align::Start);
     info_bar.set_show_close_button(true);
     info_bar.get_content_area().add(&label);
 
     info_bar.connect_response(|info_bar, response_type| unsafe {
-        if response_type == ResponseType::Close {
-            info_bar.destroy();
+        match response_type {
+            ResponseType::Close => info_bar.destroy(),
+            _ => (),
         }
     });
+
+    if let Some(timeout) = timeout {
+        let info_bar = info_bar.clone();
+        glib::timeout_add_seconds_local(timeout, move || {
+            info_bar.response(ResponseType::Close);
+            Continue(false)
+        });
+    }
 
     info_bar
 }
